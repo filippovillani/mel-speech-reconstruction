@@ -1,9 +1,12 @@
 import numpy as np
-from pathlib import Path
 import soundfile as sf
 import scipy.signal
+import matplotlib.pyplot as plt
 
-def griffin_lim_base(spectrogram, out_path, num_iter=512):
+import config
+
+def griffin_lim_base(spectrogram, out_path, num_iter=512, sr=16000):
+    out_audio_path = config.RESULTS_DIR / (str(out_path) + '.wav')
     X_init_abs = np.abs(spectrogram)
     X_init_phase = np.random.uniform(-np.pi, np.pi, size=X_init_abs.shape)
     X = X_init_abs * np.exp(1j * X_init_phase)
@@ -15,19 +18,9 @@ def griffin_lim_base(spectrogram, out_path, num_iter=512):
         X = X_init_abs * np.exp(1j * X_phase)
     
     _, x = scipy.signal.istft(X)
-    sf.write(str(out_path), x, samplerate=16000)
+    sf.write(out_audio_path, x, samplerate=sr)
     
-    # plt.figure()
-    # plt.plot(x)
-    # plt.plot(audio)
+    return x
     
-if __name__ == "__main__":
-    num_iter = 1024
-    audio_path = Path(r'D:\GitHub_Portfolio\UNet_SpeechEnhancer\mixture_example\clean0.wav')
-    in_path = Path(r'D:\GitHub_Portfolio\dsp\in.wav')
-    out_path = Path(r'D:\GitHub_Portfolio\dsp\out.wav')
-    with open(in_path, 'rb') as f:
-        audio, _ = sf.read(f)
     
-    _, _, spectrogram = scipy.signal.stft(audio)
-    griffin_lim_base(spectrogram, num_iter)
+    
