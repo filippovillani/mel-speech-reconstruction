@@ -5,9 +5,13 @@ MAIN_DIR = Path(__file__).parent
 DATA_DIR = MAIN_DIR / "data"
 RESULTS_DIR = MAIN_DIR / "results"
 AUDIO_IN_PATH = DATA_DIR / 'in.wav'
+WINDOWS_IMG_DIR = RESULTS_DIR / "windows"
 
 if not os.path.exists(RESULTS_DIR):
     os.mkdir(RESULTS_DIR)
     
 if not os.path.exists(DATA_DIR):
     os.mkdir(DATA_DIR)
+    
+if not os.path.exists(WINDOWS_IMG_DIR):
+    os.mkdir(WINDOWS_IMG_DIR)
