@@ -1,22 +1,30 @@
 import argparse
 from pathlib import Path
-import scipy.signal
 import soundfile as sf
 import json
+import librosa
+import numpy as np
 
 import config
-from griffinlim import griffin_lim_base
+from griffinlim import griffin_lim_base, griffin_lim_librosa
 from plots import plot_reconstructed_audio
-from metrics import ssnr
+from metrics import si_snr
+
 def main(args):
     snr_path = config.RESULTS_DIR / (args.out_name + '.json')
+    glb_path = args.out_name + 'glb'
+    librosa_path = args.out_name +'librosa'
     with open(config.AUDIO_IN_PATH, 'rb') as f:
         audio, sr = sf.read(f)
     
-    _, _, spectrogram = scipy.signal.stft(audio)
-    x_glb = griffin_lim_base(spectrogram, args.out_name, sr=sr)
-    plot_reconstructed_audio(audio, x_glb, args.out_name)
-    snr = {"snr": ssnr(x_glb, audio)}
+    # audio = (audio - audio.mean()) / audio.std()
+    spectrogram = np.abs(librosa.stft(audio, n_fft=args.n_fft))
+    x_glb = griffin_lim_base(spectrogram, glb_path, args.num_iter, sr=sr, n_fft=args.n_fft)
+    x_libr = griffin_lim_librosa(spectrogram, librosa_path, args.num_iter, sr=sr, n_fft=args.n_fft)
+    plot_reconstructed_audio(audio, x_glb, glb_path)
+    plot_reconstructed_audio(audio, x_libr, librosa_path)
+    snr = {"snr_glb": si_snr(audio, x_glb),
+           "snr_librosa": si_snr(audio, x_libr)}
     
     with open(snr_path, "w") as fp:
         json.dump(snr, fp)
@@ -28,5 +36,13 @@ if __name__ == "__main__":
                         type=str,
                         help='name to give to the outputs',
                         default='out')
+    parser.add_argument('--num_iter',
+                        type=int,
+                        help='number of iterations of Griffin Lim Algorithm',
+                        default='512')
+    parser.add_argument('--n_fft',
+                        type=int,
+                        help='number of points for FFT',
+                        default='1024')
     args = parser.parse_args()
     main(args)
