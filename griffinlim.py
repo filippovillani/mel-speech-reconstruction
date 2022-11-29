@@ -3,7 +3,7 @@ import soundfile as sf
 import librosa
 import matplotlib.pyplot as plt
 
-from metrics import si_snr, mse
+from metrics import si_ssnr 
 import config
 
 def griffin_lim_librosa(spectrogram: np.ndarray, 
@@ -16,13 +16,15 @@ def griffin_lim_librosa(spectrogram: np.ndarray,
     sf.write(out_audio_path, x, samplerate=sr)
 
     return x
+
+
 def griffin_lim_base(spectrogram: np.ndarray, 
                      out_path: str, 
-                     original_audio: np.ndarray = None,
                      num_iter: int = 512, 
                      n_fft: int = 1024,
                      sr: int = 16000,
-                     init: str = "random"):
+                     init: str = "random",
+                     eval: bool = True):
     
     out_audio_path = config.RESULTS_DIR / (str(out_path) + '.wav')
     if init == "zeros":
@@ -34,31 +36,28 @@ def griffin_lim_base(spectrogram: np.ndarray,
     
     X = spectrogram * np.exp(1j * X_init_phase)
     snr_hist = []
-    mse_hist = []
     for _ in range(num_iter):
         X_hat = librosa.istft(X, n_fft=n_fft)    # G+ cn
-        if original_audio is not None:
-            snr_hist.append(si_snr(original_audio, X_hat))
-            mse_hist.append(mse(original_audio, X_hat))
         X_hat = librosa.stft(X_hat, n_fft=n_fft) # G G+ cn  
         X_phase = np.angle(X_hat) 
         X = spectrogram * np.exp(1j * X_phase)   # Pc1(Pc2(cn-1))  
-    
+        if eval:
+            snr_hist.append(si_ssnr(spectrogram, np.abs(X)))
     x = librosa.istft(X)
     sf.write(out_audio_path, x, samplerate=sr)
     
-    return x, snr_hist, mse_hist
+    return x, snr_hist
 
     
     
 def fast_griffin_lim(spectrogram: np.ndarray,
                     out_path: str, 
-                    original_audio: np.ndarray = None, 
                     num_iter: int = 512,
                     alpha: float = 0.99, 
                     n_fft: int = 1024,
                     sr: int = 16000,
-                    init: str = "random"):
+                    init: str = "random",
+                    eval: bool = True):
 
     out_audio_path = config.RESULTS_DIR / (str(out_path) + '.wav')
     if init == "zeros":
@@ -76,23 +75,20 @@ def fast_griffin_lim(spectrogram: np.ndarray,
     prev_proj = spectrogram * np.exp(1j * prev_proj_phase) 
     
     snr_hist = []
-    mse_hist = []
     for _ in range(num_iter):
-        curr_proj = librosa.istft(X, n_fft=n_fft)    # G+ cn
-
-        if original_audio is not None:
-            snr_hist.append(si_snr(original_audio, curr_proj))
-            mse_hist.append(mse(original_audio, curr_proj))
-            
+        curr_proj = librosa.istft(X, n_fft=n_fft)    # G+ cn            
         curr_proj = librosa.stft(curr_proj, n_fft=n_fft) # G G+ cn    
+
         curr_proj_phase = np.angle(curr_proj) 
         curr_proj = spectrogram * np.exp(1j * curr_proj_phase)   # Pc1(Pc2(cn-1))  
-        
+            
         X = curr_proj + alpha * (curr_proj - prev_proj)
         prev_proj = curr_proj
-    
+        if eval:
+            snr_hist.append(si_ssnr(spectrogram, np.abs(X)))
+               
     x = librosa.istft(X, n_fft=n_fft)
     sf.write(out_audio_path, x, samplerate=sr)
 
-    return x, snr_hist, mse_hist
+    return x, snr_hist
         
