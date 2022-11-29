@@ -42,3 +42,17 @@ def plot_window(window: np.ndarray,
     plt.grid()
     
     plt.savefig(out_img_path)
+    
+def plot_metric_numiter(snr_hist: list, 
+                        save_path: str,
+                        metric: str = "SI-SNR"):
+    out_img_path = config.RESULTS_DIR / (str(save_path) + metric + '_numiter.png')
+
+    plt.figure() 
+    plt.plot(snr_hist)
+    plt.xlabel("n_iter")
+    plt.ylabel(metric)
+    plt.title(save_path)
+    plt.grid()
+    
+    plt.savefig(out_img_path)

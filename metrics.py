@@ -16,6 +16,12 @@ def si_snr(s_target, s_hat):
     snr = 10 * np.log10(snr)    
     return snr
 
+def mse(s_target, s_hat):
+    error = s_hat - s_target 
+    mse = np.mean(error**2)
+    return mse
+
+
 if __name__ == "__main__":
     with open(config.AUDIO_IN_PATH, 'rb') as f:
         clean, sr = sf.read(f)
