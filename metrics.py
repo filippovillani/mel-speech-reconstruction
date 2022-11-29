@@ -28,9 +28,4 @@ def si_ssnr(s_target, s_hat):
     snr = 10 * np.log10(snr)    
     return snr
 
-def mse(s_target, s_hat):
-    error = s_hat - s_target 
-    mse = np.mean(error**2)
-    return mse
-
 

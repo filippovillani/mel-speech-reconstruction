@@ -10,7 +10,7 @@ def plot_reconstructed_audio(original_audio: np.ndarray,
                              save_path: str, 
                              sr: int = 16000):
     
-    out_img_path = config.RESULTS_DIR / (str(save_path) + '.png')
+    out_img_path = config.GLA_RESULTS_DIR / (str(save_path) + '_reconstructed.png')
 
     plt.figure()
     librosa.display.waveshow(original_audio, sr=sr, label="Original signal")
@@ -44,14 +44,13 @@ def plot_window(window: np.ndarray,
     plt.savefig(out_img_path)
     
 def plot_metric_numiter(snr_hist: list, 
-                        save_path: str,
-                        metric: str = "SI-SNR"):
-    out_img_path = config.RESULTS_DIR / (str(save_path) + metric + '_numiter.png')
+                        save_path: str):
+    out_img_path = config.GLA_RESULTS_DIR / (str(save_path) + '_numiter.png')
 
     plt.figure() 
-    plt.plot(snr_hist)
+    plt.semilogx(snr_hist)
     plt.xlabel("n_iter")
-    plt.ylabel(metric)
+    plt.ylabel("SI-SSNR [dB]")
     plt.title(save_path)
     plt.grid()
     

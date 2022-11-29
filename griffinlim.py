@@ -9,10 +9,11 @@ import config
 def griffin_lim_librosa(spectrogram: np.ndarray, 
                         out_path: str, 
                         num_iter: int = 512, 
-                        sr: int = 16000):
+                        sr: int = 16000,
+                        init: str = "random"):
     
-    out_audio_path = config.RESULTS_DIR / (str(out_path) + '.wav')
-    x = librosa.griffinlim(spectrogram, n_iter=num_iter)      
+    out_audio_path = config.GLA_RESULTS_DIR / (str(out_path) + '.wav')
+    x = librosa.griffinlim(spectrogram, n_iter=num_iter, init=init)      
     sf.write(out_audio_path, x, samplerate=sr)
 
     return x
@@ -26,7 +27,7 @@ def griffin_lim_base(spectrogram: np.ndarray,
                      init: str = "random",
                      eval: bool = True):
     
-    out_audio_path = config.RESULTS_DIR / (str(out_path) + '.wav')
+    out_audio_path = config.GLA_RESULTS_DIR / (out_path + '_' + init + '.wav')
     if init == "zeros":
         X_init_phase = np.zeros(spectrogram.shape)    
     elif init =="random":
@@ -42,7 +43,7 @@ def griffin_lim_base(spectrogram: np.ndarray,
         X_phase = np.angle(X_hat) 
         X = spectrogram * np.exp(1j * X_phase)   # Pc1(Pc2(cn-1))  
         if eval:
-            snr_hist.append(si_ssnr(spectrogram, np.abs(X)))
+            snr_hist.append(si_ssnr(spectrogram, np.abs(X_hat)))
     x = librosa.istft(X)
     sf.write(out_audio_path, x, samplerate=sr)
     
@@ -59,7 +60,7 @@ def fast_griffin_lim(spectrogram: np.ndarray,
                     init: str = "random",
                     eval: bool = True):
 
-    out_audio_path = config.RESULTS_DIR / (str(out_path) + '.wav')
+    out_audio_path = config.GLA_RESULTS_DIR / (out_path + '.wav')
     if init == "zeros":
         X_init_phase = np.zeros(spectrogram.shape)    
     elif init =="random":
@@ -75,17 +76,18 @@ def fast_griffin_lim(spectrogram: np.ndarray,
     prev_proj = spectrogram * np.exp(1j * prev_proj_phase) 
     
     snr_hist = []
-    for _ in range(num_iter):
+    for n in range(num_iter+1):
         curr_proj = librosa.istft(X, n_fft=n_fft)    # G+ cn            
         curr_proj = librosa.stft(curr_proj, n_fft=n_fft) # G G+ cn    
-
+        if eval and n>0:
+            snr_hist.append(si_ssnr(spectrogram, np.abs(curr_proj)))
+        
         curr_proj_phase = np.angle(curr_proj) 
         curr_proj = spectrogram * np.exp(1j * curr_proj_phase)   # Pc1(Pc2(cn-1))  
             
         X = curr_proj + alpha * (curr_proj - prev_proj)
         prev_proj = curr_proj
-        if eval:
-            snr_hist.append(si_ssnr(spectrogram, np.abs(X)))
+
                
     x = librosa.istft(X, n_fft=n_fft)
     sf.write(out_audio_path, x, samplerate=sr)

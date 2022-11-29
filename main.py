@@ -11,29 +11,45 @@ from plots import plot_reconstructed_audio, plot_metric_numiter
 from metrics import si_ssnr
 
 def main(args):
-    results_path = config.RESULTS_DIR / (args.gla_type + '.json')
-    gla_path = args.gla_type
+    results_path = config.GLA_RESULTS_DIR / (args.gla_type + '_' + args.phase_init + '.json')
+    gla_path = args.gla_type + '_' + args.phase_init
 
     with open(config.AUDIO_IN_PATH, 'rb') as f:
         audio, sr = sf.read(f)
     
     spectrogram = np.abs(librosa.stft(audio, n_fft=args.n_fft))
+    
     if args.gla_type == 'librosa':
-        x_gla = griffin_lim_librosa(spectrogram, gla_path, args.num_iter, sr=sr) 
+        x_gla = griffin_lim_librosa(spectrogram, 
+                                    gla_path, 
+                                    args.num_iter, 
+                                    sr=sr, 
+                                    init=args.phase_init) 
         plot_reconstructed_audio(audio, x_gla, gla_path)
         results = {f"snr_{args.gla_type}": si_ssnr(spectrogram, np.abs(librosa.stft(x_gla, n_fft=args.n_fft)))}
         with open(results_path, "w") as fp:
             json.dump(results, fp)        
         return
+    
     elif args.gla_type == 'gla':
-        x_gla, snr_hist = griffin_lim_base(spectrogram, gla_path, args.num_iter, sr=sr, n_fft=args.n_fft)
+        x_gla, snr_hist = griffin_lim_base(spectrogram, 
+                                           gla_path, 
+                                           args.num_iter, 
+                                           sr=sr, 
+                                           n_fft=args.n_fft, 
+                                           init=args.phase_init)
     elif args.gla_type == 'fgla':
-        x_gla, snr_hist = fast_griffin_lim(spectrogram, gla_path, args.num_iter, sr=sr, n_fft=args.n_fft)
+        x_gla, snr_hist = fast_griffin_lim(spectrogram, 
+                                           gla_path, 
+                                           args.num_iter, 
+                                           sr=sr, 
+                                           n_fft=args.n_fft,
+                                           init=args.phase_init)
     else:
         raise ValueError("gla_type must be one in ['gla', 'fgla', 'librosa']")
     
     plot_reconstructed_audio(audio, x_gla, gla_path)
-    plot_metric_numiter(snr_hist, gla_path, "SI-SNR")      
+    plot_metric_numiter(snr_hist, gla_path)      
 
     results = {f"snr_{args.gla_type}": si_ssnr(spectrogram, np.abs(librosa.stft(x_gla, n_fft=args.n_fft))),
                f"snr_hist_{args.gla_type}": snr_hist}
@@ -48,7 +64,7 @@ if __name__ == "__main__":
                         type=str,
                         choices=['gla', 'fgla', 'librosa'],
                         help='name to give to the outputs',
-                        default='out')
+                        default='fgla')
     parser.add_argument('--num_iter',
                         type=int,
                         help='number of iterations of Griffin Lim Algorithm',
@@ -57,5 +73,10 @@ if __name__ == "__main__":
                         type=int,
                         help='number of points for FFT',
                         default='1024')
+    parser.add_argument('--phase_init',
+                        type=str,
+                        choices=['zeros', 'random'],
+                        help='type of initialization for the phase',
+                        default='random')
     args = parser.parse_args()
     main(args)
