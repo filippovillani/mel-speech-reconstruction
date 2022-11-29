@@ -12,7 +12,7 @@ from metrics import si_snr
 
 def main(args):
     snr_path = config.RESULTS_DIR / (args.out_name + '.json')
-    gla_path = args.out_name + 'glb'
+    gla_path = args.out_name + 'gla'
     fgl_path = args.out_name + 'fgla'
     librosa_path = args.out_name +'librosa'
     with open(config.AUDIO_IN_PATH, 'rb') as f:
@@ -20,20 +20,20 @@ def main(args):
     
     # audio = (audio - audio.mean()) / audio.std()
     spectrogram = np.abs(librosa.stft(audio, n_fft=args.n_fft))
-    # x_gla = griffin_lim_base(spectrogram, gla_path, args.num_iter, sr=sr, n_fft=args.n_fft)
-    # x_libr = griffin_lim_librosa(spectrogram, librosa_path, args.num_iter, sr=sr, n_fft=args.n_fft)
+    x_gla = griffin_lim_base(spectrogram, gla_path, args.num_iter, sr=sr, n_fft=args.n_fft)
+    x_libr = griffin_lim_librosa(spectrogram, librosa_path, args.num_iter, sr=sr)
     x_fgla = fast_griffin_lim(spectrogram, fgl_path, args.num_iter, sr=sr, n_fft=args.n_fft)
     
-    # plot_reconstructed_audio(audio, x_gla, gla_path)
-    # plot_reconstructed_audio(audio, x_libr, librosa_path)
+    plot_reconstructed_audio(audio, x_gla, gla_path)
+    plot_reconstructed_audio(audio, x_libr, librosa_path)
     plot_reconstructed_audio(audio, x_fgla, fgl_path)
 
-    # snr = {"snr_gla": si_snr(audio, x_gla),
-    #        "snr_fgla": si_snr(audio, x_libr),
-    #        "snr_librosa": si_snr(audio, x_libr)}
+    snr = {"snr_gla": si_snr(audio, x_gla),
+           "snr_fgla": si_snr(audio, x_fgla),
+           "snr_librosa": si_snr(audio, x_libr)}
     
-    # with open(snr_path, "w") as fp:
-    #     json.dump(snr, fp)
+    with open(snr_path, "w") as fp:
+        json.dump(snr, fp)
     
     
 if __name__ == "__main__":
