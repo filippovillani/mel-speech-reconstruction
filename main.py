@@ -13,8 +13,8 @@ from metrics import si_ssnr
 def main(args):
     results_path = config.GLA_RESULTS_DIR / (args.gla_type + '_' + args.phase_init + '.json')
     gla_path = args.gla_type + '_' + args.phase_init
-
-    with open(config.AUDIO_IN_PATH, 'rb') as f:
+    audio_path = config.DATA_DIR / args.audio_path
+    with open(audio_path, 'rb') as f:
         audio, sr = sf.read(f)
     
     spectrogram = np.abs(librosa.stft(audio, n_fft=args.n_fft))
@@ -31,7 +31,7 @@ def main(args):
             json.dump(results, fp)        
         return
     
-    elif args.gla_type == 'gla':
+    elif args.gla_type == 'glaa':
         x_gla, snr_hist = griffin_lim_base(spectrogram, 
                                            gla_path, 
                                            args.num_iter, 
@@ -62,21 +62,23 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('gla_type',
                         type=str,
-                        choices=['gla', 'fgla', 'librosa'],
-                        help='name to give to the outputs',
-                        default='fgla')
+                        choices=['glaa', 'fgla', 'librosa'],
+                        help='Type of Griffin-Algorithm')
+    parser.add_argument('audio_path',
+                        type=str,
+                        help='Path to the audio.wav file in data directory')
     parser.add_argument('--num_iter',
                         type=int,
-                        help='number of iterations of Griffin Lim Algorithm',
+                        help='Number of iterations of Griffin Lim Algorithm',
                         default='512')
     parser.add_argument('--n_fft',
                         type=int,
-                        help='number of points for FFT',
+                        help='Number of FFT points',
                         default='1024')
     parser.add_argument('--phase_init',
                         type=str,
                         choices=['zeros', 'random'],
-                        help='type of initialization for the phase',
+                        help='Type of initialization for the phase',
                         default='random')
     args = parser.parse_args()
     main(args)

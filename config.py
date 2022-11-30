@@ -5,7 +5,6 @@ MAIN_DIR = Path(__file__).parent
 DATA_DIR = MAIN_DIR / "data"
 RESULTS_DIR = MAIN_DIR / "results"
 GLA_RESULTS_DIR = RESULTS_DIR / "gla"
-AUDIO_IN_PATH = DATA_DIR / 'in.wav'
 WINDOWS_IMG_DIR = RESULTS_DIR / "windows"
 
 if not os.path.exists(RESULTS_DIR):
