@@ -62,7 +62,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('gla_type',
                         type=str,
-                        choices=['glaa', 'fgla', 'librosa'],
+                        choices=['gla', 'fgla', 'librosa'],
                         help='Type of Griffin-Algorithm')
     parser.add_argument('audio_path',
                         type=str,

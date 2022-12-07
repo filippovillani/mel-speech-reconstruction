@@ -2,7 +2,8 @@ import numpy as np
 import config
 import soundfile as sf 
 
-def si_ssnr(s_target, s_hat): 
+def si_ssnr(s_target: np.ndarray,
+            s_hat: np.ndarray)->float: 
     """
     Compute the Scale-Invariant Signal to Noise Ratio on the STFT magnitude,
     based on '2013 - A fast griffin-lim algorithm' and on '2018 - SDR - half-baked or well done?'
