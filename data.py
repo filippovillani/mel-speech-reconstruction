@@ -33,6 +33,22 @@ def build_data(df: pd.DataFrame,
         # open audio and normalize it
         audio, _ = librosa.load(path, sr=hparams.sr)
         audio = (audio - audio.mean()) / (audio.std() + 1e-12)
+        # pad or trunc all vectors to the same size
+        
+        if len(audio) < hparams.audio_len:
+            pad_begin_len = np.random.randint(0, hparams.audio_len - len(audio))
+            pad_end_len = hparams.audio_len - len(audio) - pad_begin_len
+            
+            pad_begin = np.zeros(pad_begin_len)
+            pad_end = np.zeros(pad_end_len)
+        
+            audio = np.concatenate((pad_begin, audio, pad_end))  
+            
+        else:
+            start_position = np.random.randint(0, len(audio) - hparams.audio_len)
+            end_position = start_position + hparams.audio_len
+            audio = audio[start_position:end_position]
+        
         # compute and save spectrogram
         spectr = stft(audio, 
                       hparams.n_fft,

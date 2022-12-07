@@ -15,7 +15,7 @@ def create_hparams():
                         audio_ms = 4080,
                         min_noise_ms = 1000)
     
-    audio_len_ = int(hparams.sr * hparams.audio_ms / 1000)
+    audio_len_ = int(hparams.sr * hparams.audio_ms // 1000)
     frame_len_ = int(audio_len_ // hparams.hop_len + 1)
     hparams = Namespace(**vars(hparams),
                         audio_len = audio_len_,
