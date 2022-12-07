@@ -25,6 +25,7 @@ def create_hparams():
 
 MAIN_DIR = Path(__file__).parent
 DATA_DIR = MAIN_DIR / "data"
+WAV_DIR = DATA_DIR / "wav"
 SPECTR_DIR = DATA_DIR / "spectr"
 MELSPECTR_DIR = DATA_DIR / "melspectr"
 RESULTS_DIR = MAIN_DIR / "results"
@@ -50,3 +51,6 @@ if not os.path.exists(SPECTR_DIR):
 
 if not os.path.exists(MELSPECTR_DIR):
     os.mkdir(MELSPECTR_DIR)
+
+if not os.path.exists(WAV_DIR):
+    os.mkdir(WAV_DIR)

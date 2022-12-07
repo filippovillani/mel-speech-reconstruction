@@ -28,13 +28,14 @@ def build_data(df: pd.DataFrame,
     for path in df:
         # extract file name and use it to save the spectrograms
         audio_name = path.split("\\")[-1]
+        wav_path = config.WAV_DIR / audio_name
         spectr_path = config.SPECTR_DIR / audio_name
         melspectr_path = config.MELSPECTR_DIR / audio_name
         # open audio and normalize it
         audio, _ = librosa.load(path, sr=hparams.sr)
         audio = (audio - audio.mean()) / (audio.std() + 1e-12)
-        # pad or trunc all vectors to the same size
         
+        # pad or trunc all vectors to the same size
         if len(audio) < hparams.audio_len:
             pad_begin_len = np.random.randint(0, hparams.audio_len - len(audio))
             pad_end_len = hparams.audio_len - len(audio) - pad_begin_len
@@ -49,17 +50,18 @@ def build_data(df: pd.DataFrame,
             end_position = start_position + hparams.audio_len
             audio = audio[start_position:end_position]
         
-        # compute and save spectrogram
         spectr = stft(audio, 
                       hparams.n_fft,
                       hparams.hop_len)
-        np.save(spectr_path, spectr, allow_pickle=False)
-        # compute and save melspectrogram
+
         melspecstr = melspectrogram(audio, 
                                     hparams.sr, 
                                     hparams.n_mels, 
                                     hparams.n_fft, 
                                     hparams.hop_len)
+        
+        np.save(wav_path, audio, allow_pickle=False)
+        np.save(spectr_path, spectr, allow_pickle=False)
         np.save(melspectr_path, melspecstr, allow_pickle=False)
 
 def main():

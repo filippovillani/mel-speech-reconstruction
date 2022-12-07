@@ -27,18 +27,24 @@ class MelSTFTDataset(Dataset):
                  data_dir: str):
         super().__init__()
         self.data_dir = data_dir
+        
         self.spectr_dir = data_dir / "spectr" 
         self.melspectr_dir = data_dir / "melspectr" 
+        self.wav_dir = data_dir / "wav" 
+        
         self.melspectr_list_path = [self.melspectr_dir / path for path in os.listdir(self.melspectr_dir)]
         self.spectr_list_path = [self.spectr_dir / path for path in os.listdir(self.spectr_dir)]
+        self.wav_list_path = [self.wav_dir / path for path in os.listdir(self.wav_dir)]
        
     def __getitem__(self, 
                     idx):
         
+        wav = torch.from_numpy(np.load(self.wav_list_path[idx]))
         melspectr = torch.from_numpy(np.load(self.melspectr_list_path[idx]))
         spectr = torch.from_numpy(np.load(self.spectr_list_path[idx]))
         
-        return {'melspectr': melspectr,
+        return {'wav': wav,
+                'melspectr': melspectr,
                 'spectr': spectr}
         
     def __len__(self):
@@ -48,6 +54,7 @@ if __name__ == "__main__":
     _, val_dl = build_dataloaders(config.DATA_DIR, config.create_hparams())
     
     for el in val_dl:
+        print(el['wav'].shape)
         print(el['spectr'].shape)
         print(el['melspectr'].shape)
         break
