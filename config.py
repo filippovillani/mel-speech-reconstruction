@@ -15,8 +15,8 @@ def create_hparams():
                         hop_len = 256,
                         audio_ms = 4080,
                         min_noise_ms = 1000,
-                        in_channels = [1, 8, 16, 32, 64],
-                        out_channels = [8, 16, 32, 64, 128],
+                        in_channels = [1, 16, 32, 64, 128],
+                        out_channels = [16, 32, 64, 128, 256],
                         kernel_size = (2,3))
     
     audio_len_ = int(hparams.sr * hparams.audio_ms // 1000)
@@ -32,9 +32,12 @@ DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 MAIN_DIR = Path(__file__).parent
 DATA_DIR = MAIN_DIR / "data"
-WAV_DIR = DATA_DIR / "wav"
 SPECTR_DIR = DATA_DIR / "spectr"
 MELSPECTR_DIR = DATA_DIR / "melspectr"
+WAV_DIR = DATA_DIR / "wav"
+
+WEIGHTS_DIR = MAIN_DIR / "weights"
+
 RESULTS_DIR = MAIN_DIR / "results"
 GLA_RESULTS_DIR = RESULTS_DIR / "gla"
 WINDOWS_IMG_DIR = RESULTS_DIR / "windows"
@@ -59,3 +62,6 @@ if not os.path.exists(MELSPECTR_DIR):
 
 if not os.path.exists(WAV_DIR):
     os.mkdir(WAV_DIR)
+
+if not os.path.exists(WEIGHTS_DIR):
+    os.mkdir(WEIGHTS_DIR)
