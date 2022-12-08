@@ -1,4 +1,5 @@
 import os
+import torch
 from pathlib import Path
 from argparse import Namespace
 
@@ -13,15 +14,21 @@ def create_hparams():
                         n_channels = 1,
                         hop_len = 256,
                         audio_ms = 4080,
-                        min_noise_ms = 1000)
+                        min_noise_ms = 1000,
+                        in_channels = [1, 8, 16, 32, 64],
+                        out_channels = [8, 16, 32, 64, 128],
+                        kernel_size = (2,3))
     
     audio_len_ = int(hparams.sr * hparams.audio_ms // 1000)
-    frame_len_ = int(audio_len_ // hparams.hop_len + 1)
+    n_frames_ = int(audio_len_ // hparams.hop_len + 1)
     hparams = Namespace(**vars(hparams),
                         audio_len = audio_len_,
-                        frame_len = frame_len_)
+                        n_frames = n_frames_)
     
     return hparams
+
+SEED = 42
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 MAIN_DIR = Path(__file__).parent
 DATA_DIR = MAIN_DIR / "data"
@@ -31,8 +38,6 @@ MELSPECTR_DIR = DATA_DIR / "melspectr"
 RESULTS_DIR = MAIN_DIR / "results"
 GLA_RESULTS_DIR = RESULTS_DIR / "gla"
 WINDOWS_IMG_DIR = RESULTS_DIR / "windows"
-
-SEED = 42
 
 if not os.path.exists(RESULTS_DIR):
     os.mkdir(RESULTS_DIR)
