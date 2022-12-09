@@ -9,6 +9,7 @@ from tqdm import tqdm
 from model import MelSpec2Spec
 from dataset import build_dataloaders
 from metrics import si_nsr_loss, si_ssnr_metric
+from audioutils import stft
 import config
 
 def eval_model(model: torch.nn.Module, 
@@ -21,12 +22,16 @@ def eval_model(model: torch.nn.Module,
     
     with torch.no_grad():
         for n, batch in enumerate(tqdm(dataloader)):
-            melspectr = batch["melspectr"].to(config.DEVICE)
+            melspectr, spectr = batch["melspectr"].to(config.DEVICE), batch["spectr"].to(config.DEVICE)
+            spectr = torch.abs(spectr)
+
             spectr_hat = model(melspectr.float())
-            snr_metric = si_ssnr_metric(spectr_hat, melspectr)
+            mel_spectr_hat = model.compute_mel_spectrogram(spectr_hat)
+                        
+            snr_metric = si_ssnr_metric(mel_spectr_hat, melspectr)
             score += ((1./(n+1))*(snr_metric-score))
 
-            nsr_loss = si_nsr_loss(spectr_hat, melspectr)
+            nsr_loss = si_nsr_loss(mel_spectr_hat, melspectr)
             loss += ((1./(n+1))*(nsr_loss-loss))
 
     return score, loss
@@ -86,11 +91,13 @@ def train_model(args, hparams):
             spectr = torch.abs(spectr)
 
             spectr_hat = model(melspectr.float())
-            loss = si_nsr_loss(spectr_hat, melspectr)
+            mel_spectr_hat = model.compute_mel_spectrogram(spectr_hat)
+            
+            loss = si_nsr_loss(mel_spectr_hat, melspectr)
             train_loss += ((1./(n+1))*(loss-train_loss))
             loss.backward()  
             optimizer.step()
-        
+
         training_state["train_loss_hist"].append(train_loss.item())
         print(f'\nTraining loss:     {training_state["train_loss_hist"][-1]:.4f}')
         

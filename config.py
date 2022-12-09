@@ -15,8 +15,8 @@ def create_hparams():
                         hop_len = 256,
                         audio_ms = 4080,
                         min_noise_ms = 1000,
-                        in_channels = [1, 16, 32, 64, 128],
-                        out_channels = [16, 32, 64, 128, 256],
+                        in_channels = [1, 8, 16, 32, 64],
+                        out_channels = [8, 16, 32, 64, 128],
                         kernel_size = (2,3))
     
     audio_len_ = int(hparams.sr * hparams.audio_ms // 1000)

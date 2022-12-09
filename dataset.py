@@ -13,12 +13,10 @@ def build_dataloaders(data_dir: str,
     train_ds, val_ds = random_split(ds, [0.7, 0.3], generator=torch.Generator().manual_seed(config.SEED))
     train_dl = DataLoader(train_ds, 
                           hparams.batch_size, 
-                          shuffle=True, 
-                          pin_memory=True)
+                          shuffle=True)
     val_dl = DataLoader(val_ds, 
                         hparams.batch_size, 
-                        shuffle=False,
-                        pin_memory=True)
+                        shuffle=False)
     
     return train_dl, val_dl
     

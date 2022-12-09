@@ -1,5 +1,8 @@
+import torch
 import numpy as np
 import librosa 
+
+import config
 
 def melspectrogram(audio: np.ndarray,
                    sr: int = 16000,
@@ -25,3 +28,19 @@ def stft(audio: np.ndarray,
                                hop_length=hop_len)
     
     return spectrogram
+
+def compute_mel_spectrogram(stft, hparams):
+    melfb = torch.as_tensor(librosa.filters.mel(sr=hparams.sr, 
+                                                n_fft=hparams.n_fft, 
+                                                n_mels = hparams.n_mels)).to(config.DEVICE)
+    
+    out = torch.empty((hparams.batch_size,
+                       hparams.n_channels,
+                       hparams.n_mels, 
+                       hparams.n_frames))  
+    
+    for n in range(stft.shape[0]):
+        inp = stft[n].squeeze()
+        out[n] = torch.matmul(melfb, inp).unsqueeze(0)
+    
+    return out

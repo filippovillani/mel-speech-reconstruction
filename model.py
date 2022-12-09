@@ -3,6 +3,7 @@ import torch.nn as nn
 from argparse import Namespace
 import librosa 
 
+from griffinlim import fast_griffin_lim
 import config
 
 # mel -> stft ->  wav
@@ -16,8 +17,8 @@ class MelSpec2Spec(nn.Module):
         super().__init__()
         self.hprms = hparams
         self.melfb = torch.as_tensor(librosa.filters.mel(sr=self.hprms.sr, 
-                                                    n_fft=self.hprms.n_fft, 
-                                                    n_mels = self.hprms.n_mels)).to(config.DEVICE)
+                                                         n_fft=self.hprms.n_fft, 
+                                                         n_mels = self.hprms.n_mels)).to(config.DEVICE)
         
         self.conv_block0 = self._conv2d_block(hparams.in_channels[0],
                                               hparams.out_channels[0],
@@ -30,20 +31,25 @@ class MelSpec2Spec(nn.Module):
                                                               hparams.out_channels[l],
                                                               hparams.kernel_size) for l in range(1, num_layers)])
     
-        # self.convOut1 = nn.Conv2d(64, 2, 3, padding='same')
-        # self.reluOut1 = nn.ReLU() 
+
         self.out = nn.Conv2d(hparams.out_channels[-1], 1, (4,3), padding=(2,1))
-        self.sigmoid = nn.Sigmoid()
+
+    def _compute_gla(self, spectr):
+        wav = fast_griffin_lim(spectr,
+                               n_fft = self.hprms.n_fft,
+                               sr = self.hprms.sr,
+                               num_iter=100)
+        return wav
     
-    def _compute_mel_spectrogram(self, x):
-        out = torch.empty((self.hprms.batch_size,
-                           self.hprms.n_channels,
-                           self.hprms.n_mels, 
-                           self.hprms.n_frames))  
+    def compute_mel_spectrogram(self, spectr):
+        spectr = spectr.squeeze()
+        out = torch.empty((spectr.shape[0],
+                           self.hprms.n_mels,
+                           self.hprms.n_frames)).to(config.DEVICE) 
         
-        for n in range(x.shape[0]):
-            inp = x[n].squeeze()
-            out[n] = torch.matmul(self.melfb, inp).unsqueeze(0)
+        for n in range(out.shape[0]):
+            inp = spectr[n]
+            out[n] = torch.matmul(self.melfb, inp)
         
         return out
         
@@ -66,19 +72,20 @@ class MelSpec2Spec(nn.Module):
         return block
     
     def forward(self, melspec):
-        melspec = melspec.unsqueeze(1)
+        melspec = melspec.unsqueeze(1) # channel axis
         x = self.conv_block0(melspec)
         x = self.maxpool1(x)
         x = self.conv_blocks(x)
-        x = self.out(x)
+        spectr_hat = self.out(x) 
+        # melspec_hat = self._compute_mel_spectrogram(stft_hat).squeeze()
         
-        return self._compute_mel_spectrogram(x)
+        return spectr_hat
         
         
 if __name__=="__main__":
     hparams = config.create_hparams()
-    batch = torch.rand((hparams.batch_size, hparams.n_channels, hparams.n_mels, hparams.n_frames)).to(config.DEVICE)
+    batch = torch.rand((hparams.batch_size, hparams.n_mels, hparams.n_frames)).to(config.DEVICE)
     
-    model = MelSpec2Spec(hparams)
+    model = MelSpec2Spec(hparams).to(config.DEVICE)
     print(model(batch).shape)
     
