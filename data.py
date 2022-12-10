@@ -11,12 +11,12 @@ import config
 from audioutils import melspectrogram, spectrogram
 
 def build_timit_df():
-    timit_metadata_path = config.DATA_DIR / 'train_data.csv'
-    timit_audio_dir = config.DATA_DIR / 'timit'
+    timit_dir = config.DATA_DIR / 'timit'
+    timit_metadata_path = timit_dir / 'train_data.csv'
     timit_df = pd.read_csv(timit_metadata_path)
     timit_df = timit_df.loc[timit_df['is_audio']==True].loc[timit_df['is_converted_audio']==True]
     # Dropping all the columns but speech_path
-    timit_df['speech_path'] = timit_audio_dir / timit_df['path_from_data_dir'].astype(str)
+    timit_df['speech_path'] = timit_dir / timit_df['path_from_data_dir'].astype(str)
     timit_df = timit_df['speech_path'].astype(str)
     timit_df = timit_df.sample(frac=1., random_state=config.SEED)
     timit_df = timit_df.reset_index(drop=True)
