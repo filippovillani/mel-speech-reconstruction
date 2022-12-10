@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import librosa.display
 from scipy.fft import fft, fftfreq
+import json
 
 import config
 
@@ -55,3 +56,18 @@ def plot_metric_numiter(snr_hist: list,
     plt.grid()
     
     plt.savefig(out_img_path)
+
+def plot_train_hist(train_state_path: str):
+
+    train_state_path = config.RESULTS_DIR / train_state_path
+    with open(train_state_path) as fp:
+        training_state = json.load(fp)
+
+    plt.figure()
+    plt.plot(range(1, 1+training_state["epochs"]), training_state["train_loss_hist"], label='train loss')
+    plt.plot(range(1, 1+training_state["epochs"]), training_state["val_loss_hist"], label='val loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('SI-NSR [dB]')
+    plt.legend()
+    plt.grid()
+    plt.savefig('train_hist')
