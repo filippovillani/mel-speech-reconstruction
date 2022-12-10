@@ -9,7 +9,6 @@ from tqdm import tqdm
 from model import MelSpec2Spec
 from dataset import build_dataloaders
 from metrics import si_nsr_loss, si_ssnr_metric
-from audioutils import stft
 import config
 
 def eval_model(model: torch.nn.Module, 
@@ -22,8 +21,7 @@ def eval_model(model: torch.nn.Module,
     
     with torch.no_grad():
         for n, batch in enumerate(tqdm(dataloader)):
-            melspectr, spectr = batch["melspectr"].to(config.DEVICE), batch["spectr"].to(config.DEVICE)
-            spectr = torch.abs(spectr)
+            melspectr = batch["melspectr"].to(config.DEVICE)
 
             spectr_hat = model(melspectr.float())
             mel_spectr_hat = model.compute_mel_spectrogram(spectr_hat)
@@ -46,7 +44,7 @@ def train_model(args, hparams):
 
     if args.weights_dir is not None:
         weights_dir = config.WEIGHTS_DIR / args.weights_dir
-        weights_path = weights_dir / args.weights_dir
+        weights_path = weights_dir / (args.weights_dir + '_weights')
         opt_path = weights_dir / (args.weights_dir + '_opt')
         
         model.load_state_dict(torch.load(weights_path))
@@ -57,7 +55,7 @@ def train_model(args, hparams):
          
     else:
         weights_dir = config.WEIGHTS_DIR / args.experiment_name
-        weights_path = weights_dir / args.experiment_name
+        weights_path = weights_dir / (args.experiment_name + '_weights')
         opt_path = weights_dir / (args.experiment_name + '_opt')
         
         if not os.path.exists(weights_dir):
@@ -87,8 +85,8 @@ def train_model(args, hparams):
    
         for n, batch in enumerate(tqdm(train_dl, desc=f'Epoch {training_state["epochs"]}')):   
             optimizer.zero_grad()  
-            melspectr, spectr = batch["melspectr"].to(config.DEVICE), batch["spectr"].to(config.DEVICE)
-            spectr = torch.abs(spectr)
+            melspectr = batch["melspectr"].to(config.DEVICE)
+            # spectr = torch.abs(spectr)
 
             spectr_hat = model(melspectr.float())
             mel_spectr_hat = model.compute_mel_spectrogram(spectr_hat)
@@ -99,7 +97,7 @@ def train_model(args, hparams):
             optimizer.step()
 
         training_state["train_loss_hist"].append(train_loss.item())
-        print(f'\nTraining loss:     {training_state["train_loss_hist"][-1]:.4f}')
+        print(f'Training loss:     {training_state["train_loss_hist"][-1]:.4f}\n')
         
         # Evaluate on the validation set
         print(f'Evaluating the model on validation set...')
