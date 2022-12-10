@@ -57,9 +57,12 @@ def plot_metric_numiter(snr_hist: list,
     
     plt.savefig(out_img_path)
 
-def plot_train_hist(train_state_path: str):
+def plot_train_hist(experiment_name: str):
 
-    train_state_path = config.RESULTS_DIR / train_state_path
+    experiment_dir = config.MELSPEC2SPEC_DIR / experiment_name
+    train_state_path = experiment_dir / 'train_state.json'
+    img_path = config.RESULTS_DIR / (experiment_name + '_train_hist.png')
+    
     with open(train_state_path) as fp:
         training_state = json.load(fp)
 
@@ -70,4 +73,4 @@ def plot_train_hist(train_state_path: str):
     plt.ylabel('SI-NSR [dB]')
     plt.legend()
     plt.grid()
-    plt.savefig('train_hist')
+    plt.savefig(img_path)

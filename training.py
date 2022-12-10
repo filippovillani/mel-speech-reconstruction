@@ -9,6 +9,7 @@ from tqdm import tqdm
 from model import MelSpec2Spec
 from dataset import build_dataloaders
 from metrics import si_nsr_loss, si_ssnr_metric
+from plots import plot_train_hist
 import config
 
 def eval_model(model: torch.nn.Module, 
@@ -36,7 +37,11 @@ def eval_model(model: torch.nn.Module,
 
 def train_model(args, hparams):
     
-    training_state_path = config.RESULTS_DIR / (args.experiment_name+"_train_state.json")
+    experiment_dir = config.MELSPEC2SPEC_DIR / args.experiment_name
+    if not os.path.exists(experiment_dir):
+        os.mkdir(experiment_dir)
+    
+    training_state_path = experiment_dir / "train_state.json"
     
     model = MelSpec2Spec(hparams).float().to(config.DEVICE)
     optimizer = torch.optim.Adam(params=model.parameters(),
@@ -135,7 +140,11 @@ def train_model(args, hparams):
     print('val SI-NSR Loss:  \t', training_state["val_loss_hist"][training_state["best_epoch"]-1])
     print('val SI-SNR Score: \t', training_state["best_val_score"])
     print('____________________________________________')
-    
+
+def main(args):
+    train_model(args, config.create_hparams())
+    plot_train_hist(args.experiment_name)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
@@ -146,5 +155,4 @@ if __name__ == "__main__":
                         default=None)
     
     args = parser.parse_args()
-    
-    train_model(args, config.create_hparams())
+    main(args)

@@ -33,8 +33,6 @@ for n, el in enumerate(val_dl):
     
     out_hat, _ = fast_griffin_lim(np.abs(spec_hat.cpu().detach().numpy()[0]))
     sf.write(str(out_hat_path), out_hat[0], samplerate = hparams.sr)
-
-
     
     plt.figure()
     plt.subplot(2,1,1)
