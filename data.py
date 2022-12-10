@@ -8,7 +8,7 @@ from pathlib import Path
 from argparse import Namespace
 
 import config
-from audioutils import melspectrogram, stft
+from audioutils import melspectrogram, spectrogram
 
 def build_timit_df():
     timit_metadata_path = config.DATA_DIR / 'train_data.csv'
@@ -50,9 +50,9 @@ def build_data(df: pd.DataFrame,
             end_position = start_position + hparams.audio_len
             audio = audio[start_position:end_position]
         
-        spectr = stft(audio, 
-                      hparams.n_fft,
-                      hparams.hop_len)
+        spectr = spectrogram(audio, 
+                             hparams.n_fft,
+                             hparams.hop_len)
 
         melspecstr = melspectrogram(audio, 
                                     hparams.sr, 

@@ -3,10 +3,11 @@ import torch
 from pathlib import Path
 from argparse import Namespace
 
-def create_hparams():
+def create_hparams():   # training hparams
     hparams = Namespace(batch_size = 4,
                         epochs = 50,
                         patience = 20,
+                        # audio hparams
                         lr = 1e-3,
                         sr = 16000,
                         n_mels = 96,
@@ -15,6 +16,7 @@ def create_hparams():
                         hop_len = 256,
                         audio_ms = 4080,
                         min_noise_ms = 1000,
+                        # model hparams
                         in_channels = [1, 8, 16, 32, 64],
                         out_channels = [8, 16, 32, 64, 128],
                         kernel_size = (2,3))

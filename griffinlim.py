@@ -73,7 +73,7 @@ def fast_griffin_lim(spectrogram: np.ndarray,
     prev_proj = spectrogram * np.exp(1j * prev_proj_phase) 
     
     snr_hist = []
-    for n in range(num_iter+1):
+    for _ in range(num_iter+1):
         curr_proj = librosa.istft(X, n_fft=n_fft)    # G+ cn            
         curr_proj = librosa.stft(curr_proj, n_fft=n_fft) # G G+ cn    
         
@@ -84,7 +84,7 @@ def fast_griffin_lim(spectrogram: np.ndarray,
         prev_proj = curr_proj
     
     x = librosa.istft(X, n_fft=n_fft)
-
+    x /= np.max(x)
     # save .wav
     if out_path is not None:
         out_audio_path = config.GLA_RESULTS_DIR / (out_path + '.wav')

@@ -8,7 +8,7 @@ import numpy as np
 import config
 from griffinlim import griffin_lim_base, griffin_lim_librosa, fast_griffin_lim
 from plots import plot_reconstructed_audio, plot_metric_numiter
-from metrics import si_ssnr
+from metrics import si_ssnr_metric
 
 def main(args):
     results_path = config.GLA_RESULTS_DIR / (args.gla_type + '_' + args.phase_init + '.json')
@@ -26,7 +26,7 @@ def main(args):
                                     sr=sr, 
                                     init=args.phase_init) 
         plot_reconstructed_audio(audio, x_gla, gla_path)
-        results = {f"snr_{args.gla_type}": si_ssnr(spectrogram, np.abs(librosa.stft(x_gla, n_fft=args.n_fft)))}
+        results = {f"snr_{args.gla_type}": si_ssnr_metric(spectrogram, np.abs(librosa.stft(x_gla, n_fft=args.n_fft)))}
         with open(results_path, "w") as fp:
             json.dump(results, fp)        
         return
@@ -51,7 +51,7 @@ def main(args):
     plot_reconstructed_audio(audio, x_gla, gla_path)
     plot_metric_numiter(snr_hist, gla_path)      
 
-    results = {f"snr_{args.gla_type}": si_ssnr(spectrogram, np.abs(librosa.stft(x_gla, n_fft=args.n_fft))),
+    results = {f"snr_{args.gla_type}": si_ssnr_metric(spectrogram, np.abs(librosa.stft(x_gla, n_fft=args.n_fft))),
                f"snr_hist_{args.gla_type}": snr_hist}
     
     with open(results_path, "w") as fp:
@@ -60,13 +60,15 @@ def main(args):
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('gla_type',
+    parser.add_argument('--gla_type',
                         type=str,
                         choices=['gla', 'fgla', 'librosa'],
-                        help='Type of Griffin-Algorithm')
-    parser.add_argument('audio_path',
+                        help='Type of Griffin-Algorithm',
+                        default='fgla')
+    parser.add_argument('--audio_path',
                         type=str,
-                        help='Path to the audio.wav file in data directory')
+                        help='Path to the audio.wav file in data directory',
+                        default='in.wav')
     parser.add_argument('--num_iter',
                         type=int,
                         help='Number of iterations of Griffin Lim Algorithm',

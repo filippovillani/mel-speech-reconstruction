@@ -11,6 +11,24 @@ import config
 # mel -> stft: enc/dec structure?
 # stft -> wav: Bi-LSTM on time-samples to correct the prediction
 
+class MelSpec2Wav(nn.Module):
+    def __init__(self, 
+                 hparams: Namespace):
+        self.hprms = hparams
+        self.melspec2spec = MelSpec2Spec(hparams)
+    
+    def _compute_gla(self, spectr):
+        wav = fast_griffin_lim(spectr,
+                               n_fft = self.hprms.n_fft,
+                               sr = self.hprms.sr,
+                               num_iter=100)
+        return wav       
+    
+    def forward(self, melspec):
+        spec = self.melspec2spec(melspec)
+        wav = self._compute_gla(spec) # TODO: compute_gla to torch (now np), try to change GLA with NNs
+        return wav
+
 class MelSpec2Spec(nn.Module):
     def __init__(self,
                  hparams: Namespace):
@@ -24,7 +42,7 @@ class MelSpec2Spec(nn.Module):
                                               hparams.out_channels[0],
                                               hparams.kernel_size,
                                               upsample=False)
-        self.maxpool1 = nn.MaxPool2d((3,1))
+        self.maxpool0 = nn.MaxPool2d((3,1))
         
         num_layers = len(hparams.in_channels)
         self.conv_blocks = nn.Sequential(*[self._conv2d_block(hparams.in_channels[l], 
@@ -33,25 +51,6 @@ class MelSpec2Spec(nn.Module):
     
 
         self.out = nn.Conv2d(hparams.out_channels[-1], 1, (4,3), padding=(2,1))
-
-    def _compute_gla(self, spectr):
-        wav = fast_griffin_lim(spectr,
-                               n_fft = self.hprms.n_fft,
-                               sr = self.hprms.sr,
-                               num_iter=100)
-        return wav
-    
-    def compute_mel_spectrogram(self, spectr):
-        spectr = spectr.squeeze()
-        out = torch.empty((spectr.shape[0],
-                           self.hprms.n_mels,
-                           self.hprms.n_frames)).to(config.DEVICE) 
-        
-        for n in range(out.shape[0]):
-            inp = spectr[n]
-            out[n] = torch.matmul(self.melfb, inp)
-        
-        return out
         
     def _conv2d_block(self,
                       in_channels,
@@ -71,13 +70,24 @@ class MelSpec2Spec(nn.Module):
         
         return block
     
+    def compute_mel_spectrogram(self, spectr):
+        spectr = spectr.squeeze()
+        out = torch.empty((spectr.shape[0],
+                           self.hprms.n_mels,
+                           self.hprms.n_frames)).to(config.DEVICE) 
+        
+        for n in range(out.shape[0]):
+            inp = spectr[n]
+            out[n] = torch.matmul(self.melfb, inp)
+        
+        return out
+    
     def forward(self, melspec):
-        melspec = melspec.unsqueeze(1) # channel axis
+        melspec = melspec.unsqueeze(1)
         x = self.conv_block0(melspec)
-        x = self.maxpool1(x)
+        x = self.maxpool0(x)
         x = self.conv_blocks(x)
         spectr_hat = self.out(x) 
-        # melspec_hat = self._compute_mel_spectrogram(stft_hat).squeeze()
         
         return spectr_hat
         
