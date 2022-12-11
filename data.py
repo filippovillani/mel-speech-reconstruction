@@ -31,9 +31,8 @@ def build_data(df: pd.DataFrame,
         wav_path = config.WAV_DIR / audio_name
         spectr_path = config.SPECTR_DIR / audio_name
         melspectr_path = config.MELSPECTR_DIR / audio_name
-        # open audio and normalize it
+        # Open audio  
         audio, _ = librosa.load(path, sr=hparams.sr)
-        audio = (audio - audio.mean()) / (audio.std() + 1e-12)
         
         # pad or trunc all vectors to the same size
         if len(audio) < hparams.audio_len:
@@ -50,15 +49,18 @@ def build_data(df: pd.DataFrame,
             end_position = start_position + hparams.audio_len
             audio = audio[start_position:end_position]
         
-        spectr = spectrogram(audio, 
-                             hparams.n_fft,
-                             hparams.hop_len)
+        # Normalize audio
+        audio = (audio - audio.mean()) / (audio.std() + 1e-12)
+        
+        spectr = np.abs(librosa.stft(y=audio, 
+                                     n_fft=hparams.n_fft,
+                                     hop_length=hparams.hop_len))
 
-        melspecstr = melspectrogram(audio, 
-                                    hparams.sr, 
-                                    hparams.n_mels, 
-                                    hparams.n_fft, 
-                                    hparams.hop_len)
+        mel_fb = librosa.filters.mel(sr = hparams.sr,
+                                     n_fft = hparams.n_fft,
+                                     n_mels = hparams.n_mels)
+        
+        melspecstr = np.dot(mel_fb, spectr)
         
         np.save(wav_path, audio, allow_pickle=False)
         np.save(spectr_path, spectr, allow_pickle=False)

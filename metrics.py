@@ -3,6 +3,11 @@ import torch
 
 import config
 
+def mse(s_target: torch.Tensor,
+        s_hat: torch.Tensor)->torch.Tensor:
+    error = s_target - s_hat
+    return torch.mean(torch.square(error))
+
 def si_ssnr_metric(s_target: torch.Tensor,
                    s_hat: torch.Tensor)->torch.Tensor: 
     """

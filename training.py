@@ -6,9 +6,9 @@ import argparse
 from time import time
 from tqdm import tqdm
 
-from model import MelSpec2Spec
+from model import Network
 from dataset import build_dataloaders
-from metrics import si_nsr_loss, si_ssnr_metric
+from metrics import si_nsr_loss, si_ssnr_metric, mse
 from plots import plot_train_hist
 import config
 
@@ -22,15 +22,14 @@ def eval_model(model: torch.nn.Module,
     
     with torch.no_grad():
         for n, batch in enumerate(tqdm(dataloader)):
-            melspectr = batch["melspectr"].to(config.DEVICE)
+            melspec = batch["melspec"].to(config.DEVICE)
 
-            spectr_hat = model(melspectr.float())
-            mel_spectr_hat = model.compute_mel_spectrogram(spectr_hat)
-                        
-            snr_metric = si_ssnr_metric(mel_spectr_hat, melspectr)
+            melspec_hat = model(melspec.float())
+                                    
+            snr_metric = si_ssnr_metric(melspec_hat, melspec)
             score += ((1./(n+1))*(snr_metric-score))
 
-            nsr_loss = si_nsr_loss(mel_spectr_hat, melspectr)
+            nsr_loss = mse(melspec_hat, melspec)
             loss += ((1./(n+1))*(nsr_loss-loss))
 
     return score, loss
@@ -43,7 +42,7 @@ def train_model(args, hparams):
     
     training_state_path = experiment_dir / "train_state.json"
     
-    model = MelSpec2Spec(hparams).float().to(config.DEVICE)
+    model = Network(hparams).float().to(config.DEVICE)
     optimizer = torch.optim.Adam(params=model.parameters(),
                                  lr=hparams.lr)
 
@@ -90,13 +89,11 @@ def train_model(args, hparams):
    
         for n, batch in enumerate(tqdm(train_dl, desc=f'Epoch {training_state["epochs"]}')):   
             optimizer.zero_grad()  
-            melspectr = batch["melspectr"].to(config.DEVICE)
-            # spectr = torch.abs(spectr)
+            melspec = batch["melspec"].to(config.DEVICE)
 
-            spectr_hat = model(melspectr.float())
-            mel_spectr_hat = model.compute_mel_spectrogram(spectr_hat)
+            melspec_hat = model(melspec.float())
             
-            loss = si_nsr_loss(mel_spectr_hat, melspectr)
+            loss = mse(melspec_hat, melspec)
             train_loss += ((1./(n+1))*(loss-train_loss))
             loss.backward()  
             optimizer.step()
