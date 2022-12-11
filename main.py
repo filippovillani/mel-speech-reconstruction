@@ -76,7 +76,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_iter',
                         type=int,
                         help='Number of iterations of Griffin Lim Algorithm',
-                        default='10000')
+                        default='512')
     parser.add_argument('--n_fft',
                         type=int,
                         help='Number of FFT points',
@@ -85,7 +85,7 @@ if __name__ == "__main__":
                         type=str,
                         choices=['zeros', 'random'],
                         help='Type of initialization for the phase',
-                        default='random')
+                        default='zeros')
     parser.add_argument('--eval',
                         type=bool,
                         default=True)
