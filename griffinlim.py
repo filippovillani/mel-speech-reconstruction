@@ -3,7 +3,8 @@ import soundfile as sf
 import librosa
 import matplotlib.pyplot as plt
 
-from metrics import si_ssnr 
+from metrics import si_ssnr_metric 
+import config
 
 def griffin_lim_librosa(spectrogram: np.ndarray, 
                         n_iter: int = 512, 
@@ -36,7 +37,7 @@ def griffin_lim_base(spectrogram: np.ndarray,
         X_phase = np.angle(X_hat) 
         X = spectrogram * np.exp(1j * X_phase)   # Pc1(Pc2(cn-1))  
         if eval and n>0:
-            snr_hist.append(si_ssnr(spectrogram, np.abs(X_hat)))
+            snr_hist.append(si_ssnr_metric(spectrogram, np.abs(X_hat)))
     
     x = librosa.istft(X)
     x /= np.max(x)
@@ -44,13 +45,11 @@ def griffin_lim_base(spectrogram: np.ndarray,
     return x, snr_hist
 
 
-    
-    
 def fast_griffin_lim(spectrogram: np.ndarray,
                     n_iter: int = 512,
                     alpha: float = 0.99, 
                     n_fft: int = 1024,
-                    init: str = "random",
+                    init: str = "zeros",
                     eval: bool = False):
 
     if init == "zeros":
@@ -73,7 +72,7 @@ def fast_griffin_lim(spectrogram: np.ndarray,
         curr_proj = librosa.stft(curr_proj, n_fft=n_fft) # G G+ cn  
           
         if eval and n>0:
-            snr_hist.append(si_ssnr(spectrogram, np.abs(curr_proj)))
+            snr_hist.append(si_ssnr_metric(spectrogram, np.abs(curr_proj)))
         
         curr_proj_phase = np.angle(curr_proj) 
         curr_proj = spectrogram * np.exp(1j * curr_proj_phase)   # Pc1(Pc2(cn-1))  
