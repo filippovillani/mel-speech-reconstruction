@@ -4,7 +4,7 @@ import soundfile as sf
 import numpy as np
 import argparse
 
-from model import Network
+from model import MelSpect2Spec
 from griffinlim import fast_griffin_lim
 from audioutils import melspectrogram, spectrogram
 from plots import plot_prediction
@@ -59,7 +59,7 @@ def predict(args, hparams):
     sf.write(str(out_path), out, samplerate = hparams.sr)
 
     # Instatiate the model
-    model = Network(hparams).float().to(config.DEVICE)
+    model = MelSpect2Spec(hparams).float().to(config.DEVICE)
     model.eval()
     model.load_state_dict(torch.load(weights_path))
     

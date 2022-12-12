@@ -6,7 +6,7 @@ import argparse
 from time import time
 from tqdm import tqdm
 
-from model import Network
+from model import MelSpect2Spec
 from dataset import build_dataloaders
 from metrics import si_nsr_loss, si_ssnr_metric, mse
 from plots import plot_train_hist
@@ -40,7 +40,7 @@ def train_model(args, hparams):
     if not os.path.exists(experiment_dir):
         os.mkdir(experiment_dir)
         
-    model = Network(hparams).float().to(config.DEVICE)
+    model = MelSpect2Spec(hparams).float().to(config.DEVICE)
     optimizer = torch.optim.Adam(params=model.parameters(),
                                  lr=hparams.lr)
 
@@ -64,7 +64,7 @@ def train_model(args, hparams):
         weights_dir = config.WEIGHTS_DIR / args.experiment_name
         best_weights_path = weights_dir / 'best_weights'
         ckpt_weights_path = weights_dir / 'ckpt_weights'
-        ckpt_opt_path = weights_dir /  + 'ckpt_opt'
+        ckpt_opt_path = weights_dir / 'ckpt_opt'
         
         if not os.path.exists(weights_dir):
             os.mkdir(weights_dir)
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='prova03')
+                        default='prova04')
     parser.add_argument('--weights_dir',
                         type=str,
                         default=None)

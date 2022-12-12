@@ -1,33 +1,17 @@
-import torch
 import numpy as np
 import librosa 
 
-import config
+def amplitude_to_db(spectrogram: np.ndarray)->np.ndarray:
+    """
+    Convert input spectrogram from amplitude to dB and then normalize it in [0, 1]
 
-def melspectrogram(audio: np.ndarray,
-                   sr: int = 16000,
-                   n_mels: int = 96, 
-                   n_fft: int = 1024, 
-                   hop_len: int = 256)->np.ndarray:
-    
-    melspectrogram = librosa.amplitude_to_db(librosa.feature.melspectrogram(y=np.abs(audio),
-                                                                            sr = sr, 
-                                                                            n_fft = n_fft, hop_length = hop_len,
-                                                                            n_mels = n_mels), 
-                                             ref=np.max, 
-                                             top_db=80.) / 80. + 1.
-    
-    
-    return melspectrogram
+    Args:
+        spectrogram (np.ndarray): spectrogram to be converted
 
-def spectrogram(audio: np.ndarray,
-                n_fft: int = 1024,
-                hop_len: int = 256)->np.ndarray:
+    Returns:
+        np.ndarray: converted spectrogram
+    """
+    return librosa.amplitude_to_db(spectrogram,
+                                   ref=np.max, 
+                                   top_db=80.) / 80. + 1.
     
-    spectrogram = librosa.amplitude_to_db(np.abs(librosa.stft(y=audio, 
-                                                              n_fft=n_fft,
-                                                              hop_length=hop_len)), 
-                                          ref=np.max, 
-                                          top_db=80.) / 80. + 1.
-    
-    return spectrogram

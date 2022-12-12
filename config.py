@@ -5,10 +5,10 @@ from argparse import Namespace
 
 def create_hparams():   # training hparams
     hparams = Namespace(batch_size = 4,
-                        epochs = 100,
-                        patience = 20,
+                        epochs = 30,
+                        patience = 10,
                         # audio hparams
-                        lr = 1e-2,
+                        lr = 1e-3,
                         sr = 16000,
                         n_mels = 96,
                         n_fft = 1024,
@@ -19,7 +19,8 @@ def create_hparams():   # training hparams
                         # model hparams
                         in_channels = [1, 8, 16, 32, 64],
                         out_channels = [8, 16, 32, 64, 128],
-                        kernel_size = (2,3))
+                        kernel_size = (2,3),
+                        dropout=0.4)
     
     audio_len_ = int(hparams.sr * hparams.audio_ms // 1000)
     n_frames_ = int(audio_len_ // hparams.hop_len + 1)

@@ -1,5 +1,5 @@
 '''
-Generate and save melspectrograms (input) and spectrograms (target)
+Generate and save melspectrograms, stftspectrograms and wav as .npy files
 '''
 import numpy as np
 import pandas as pd
