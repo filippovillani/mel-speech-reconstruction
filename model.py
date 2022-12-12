@@ -102,6 +102,7 @@ class Network(nn.Module):
     
 
         self.out = nn.Conv2d(hparams.out_channels[-1], 1, (4,3), padding=(2,1))
+        self.out_act = nn.ReLU()
             
     def _conv2d_block(self,
                       in_channels,
@@ -140,8 +141,9 @@ class Network(nn.Module):
         x = self.conv_block0(melspec)
         x = self.maxpool0(x)
         x = self.conv_blocks(x)
-        stftspec_hat = self.out(x)  
-        return stftspec_hat
+        stftspec_hat = self.out(x)
+        
+        return self.out_act(stftspec_hat)
     
     def forward(self, melspec):
         stftspec_hat = self.compute_stft_spectrogram(melspec)

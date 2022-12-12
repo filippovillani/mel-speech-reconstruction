@@ -10,6 +10,14 @@ from audioutils import melspectrogram, spectrogram
 from plots import plot_prediction
 import config
 
+'''
+melspec.max() = 38.0408 
+melspec.min() = 6.0874e-23 
+melspec_hat.min() = -2.5113
+melspec_hat.max() = 36.4129
+'''
+
+
 def open_audio(audio_path, hparams):
     # Open audio  
     audio, _ = librosa.load(audio_path, sr=hparams.sr)
@@ -40,7 +48,7 @@ def predict(args, hparams):
     audio_path = config.DATA_DIR / args.audio_path
     out_path = experiment_dir / 'gla_from_stftspec.wav' 
     out_hat_path = experiment_dir / 'gla_from_melspec.wav'
-
+    out_pinv_path = experiment_dir / 'gla_from_pinvmelspec.wav'
     # Compute stft of example and then apply gla to retrieve the waveform back
     audio = open_audio(audio_path, hparams)
     stftspec = np.abs(librosa.stft(y=audio, 
@@ -63,8 +71,16 @@ def predict(args, hparams):
     out_hat, _ = fast_griffin_lim(np.abs(stftspec_hat.cpu().detach().numpy().squeeze()))
     sf.write(str(out_hat_path), out_hat, samplerate = hparams.sr)   
     
+    # Compute stftspec with melfb pseudoinverse matrix
+    stftspec_pinv = np.dot(np.linalg.pinv(model.melfb.cpu().numpy()), 
+                           melspec_hat.cpu().detach().numpy())
+    melspec_pinv = np.dot(model.melfb.cpu().numpy(), stftspec_pinv)
+    out_pinv, _ = fast_griffin_lim(stftspec_pinv)
+    sf.write(str(out_pinv_path), out_pinv, samplerate = hparams.sr) 
+      
     plot_prediction(melspec.cpu().numpy(), 
                     melspec_hat.cpu().detach().numpy(), 
+                    melspec_pinv,
                     hparams, 
                     args.experiment_name)
     

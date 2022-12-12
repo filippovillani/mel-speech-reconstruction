@@ -86,16 +86,19 @@ def plot_train_hist(experiment_name: str):
     plt.grid()
     plt.savefig(metric_img_path)
 
-def plot_prediction(mel: Tensor,
-                    mel_hat: Tensor,
+def plot_prediction(mel: np.ndarray,
+                    mel_hat: np.ndarray,
+                    mel_pinv: np.ndarray,
                     hparams: Namespace,
                     experiment_name: str):
     
     out_path = config.MELSPEC2SPEC_DIR / experiment_name / 'prediction.png'
     
     plt.figure()
-    plt.subplot(2,1,1)
+    plt.subplot(3,1,1)
     librosa.display.specshow(mel, sr=hparams.sr, n_fft=hparams.n_fft, hop_length=hparams.hop_len)
-    plt.subplot(2,1,2)
+    plt.subplot(3,1,2)
     librosa.display.specshow(mel_hat, sr=hparams.sr, n_fft=hparams.n_fft, hop_length=hparams.hop_len)
+    plt.subplot(3,1,3)
+    librosa.display.specshow(mel_pinv, sr=hparams.sr, n_fft=hparams.n_fft, hop_length=hparams.hop_len)
     plt.savefig(out_path)
