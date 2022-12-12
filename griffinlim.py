@@ -81,7 +81,7 @@ def fast_griffin_lim(spectrogram: np.ndarray,
         prev_proj = curr_proj
 
     x = librosa.istft(X, n_fft=n_fft)
-    x /= np.max(x)
+    x /= np.max(np.abs(x))
 
     return x, snr_hist
 

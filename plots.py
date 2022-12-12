@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import librosa.display
 from scipy.fft import fft, fftfreq
 import json
+from torch import Tensor
+from argparse import Namespace
 
 import config
 
@@ -61,7 +63,8 @@ def plot_train_hist(experiment_name: str):
 
     experiment_dir = config.MELSPEC2SPEC_DIR / experiment_name
     train_state_path = experiment_dir / 'train_state.json'
-    img_path = config.RESULTS_DIR / (experiment_name + '_train_hist.png')
+    loss_img_path = experiment_dir / 'loss_hist.png'
+    metric_img_path = experiment_dir / 'metric_hist.png'
     
     with open(train_state_path) as fp:
         training_state = json.load(fp)
@@ -70,7 +73,29 @@ def plot_train_hist(experiment_name: str):
     plt.plot(range(1, 1+training_state["epochs"]), training_state["train_loss_hist"], label='train loss')
     plt.plot(range(1, 1+training_state["epochs"]), training_state["val_loss_hist"], label='val loss')
     plt.xlabel('Epochs')
+    plt.ylabel('MSE')
+    plt.legend()
+    plt.grid()
+    plt.savefig(loss_img_path)
+
+    plt.figure()
+    plt.plot(range(1, 1+training_state["epochs"]), training_state["val_score_hist"], label='val metric')
+    plt.xlabel('Epochs')
     plt.ylabel('SI-NSR [dB]')
     plt.legend()
     plt.grid()
-    plt.savefig(img_path)
+    plt.savefig(metric_img_path)
+
+def plot_prediction(mel: Tensor,
+                    mel_hat: Tensor,
+                    hparams: Namespace,
+                    experiment_name: str):
+    
+    out_path = config.MELSPEC2SPEC_DIR / experiment_name / 'prediction.png'
+    
+    plt.figure()
+    plt.subplot(2,1,1)
+    librosa.display.specshow(mel, sr=hparams.sr, n_fft=hparams.n_fft, hop_length=hparams.hop_len)
+    plt.subplot(2,1,2)
+    librosa.display.specshow(mel_hat, sr=hparams.sr, n_fft=hparams.n_fft, hop_length=hparams.hop_len)
+    plt.savefig(out_path)

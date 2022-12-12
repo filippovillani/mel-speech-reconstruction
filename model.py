@@ -10,6 +10,77 @@ import config
 
 # mel -> stft: enc/dec structure?
 # stft -> wav: Bi-LSTM on time-samples to correct the prediction
+class Network1D(nn.Module):
+    def __init__(self,
+                 hparams: Namespace):
+        
+        super().__init__()
+        self.hprms = hparams
+        self.melfb = torch.as_tensor(librosa.filters.mel(sr=self.hprms.sr, 
+                                                         n_fft=self.hprms.n_fft, 
+                                                         n_mels = self.hprms.n_mels)).to(config.DEVICE)
+        self.conv_block0 = self._conv1d_block(hparams.in_channels[0],
+                                              hparams.out_channels[0],
+                                              hparams.kernel_size[0],
+                                              upsample=False)
+        self.maxpool0 = nn.MaxPool1d(3)
+        
+        num_layers = len(hparams.in_channels)
+        self.conv_blocks = nn.Sequential(*[self._conv1d_block(hparams.in_channels[l], 
+                                                              hparams.out_channels[l],
+                                                              hparams.kernel_size[0]) for l in range(1, num_layers)])
+    
+
+        self.out = nn.Conv1d(hparams.out_channels[-1], 1, 4, padding=2)
+
+    def _conv1d_block(self,
+                      in_channels,
+                      out_channels,
+                      kernel_size,
+                      upsample=True):
+        
+        conv = nn.Conv1d(in_channels, out_channels, kernel_size, padding='same')
+        bn = nn.BatchNorm1d(out_channels)
+        act = nn.ReLU()
+        
+        if upsample:
+            upsamp = nn.Upsample(scale_factor=2)
+            block = nn.Sequential(conv, bn, act, upsamp)
+        else:
+            block = nn.Sequential(conv, bn, act)
+        
+        return block
+    
+    def compute_mel_spectrogram(self, stft_spectrogram):
+        stft_spectrogram = stft_spectrogram.squeeze().to(config.DEVICE)
+        out = torch.empty((stft_spectrogram.shape[0],
+                           self.hprms.n_mels,
+                           self.hprms.n_frames)).to(config.DEVICE) 
+        
+        for n in range(out.shape[0]):
+            out[n] = torch.matmul(self.melfb, stft_spectrogram[n])
+        
+        return out
+    
+    def compute_stft_spectrogram(self, mel_spectrogram):
+        mel_spectrogram = mel_spectrogram.unsqueeze(1)
+        stftspec_hat = torch.empty((mel_spectrogram.shape[0],
+                                    mel_spectrogram.shape[1],
+                                    self.hprms.n_stft,
+                                    self.hprms.n_frames))
+        for f in range(mel_spectrogram.shape[-1]):
+            x = self.conv_block0(mel_spectrogram[:,:,:,f])
+            x = self.maxpool0(x)
+            x = self.conv_blocks(x)
+            stftspec_hat[:,:,:,f] = self.out(x)  
+        return stftspec_hat.squeeze()
+    
+    def forward(self, melspec):
+        stftspec_hat = self.compute_stft_spectrogram(melspec)
+        melspec_hat = self.compute_mel_spectrogram(stftspec_hat)
+        
+        return melspec_hat
+        
 class Network(nn.Module):
     def __init__(self,
                  hparams: Namespace):
@@ -50,14 +121,17 @@ class Network(nn.Module):
         
         return block
     
-    def _compute_mel_spectrogram(self, stft_spectrogram):
-        stft_spectrogram = stft_spectrogram.squeeze()
-        out = torch.empty((stft_spectrogram.shape[0],
-                           self.hprms.n_mels,
-                           self.hprms.n_frames)).to(config.DEVICE) 
-        
-        for n in range(out.shape[0]):
-            out[n] = torch.matmul(self.melfb, stft_spectrogram[n])
+    def compute_mel_spectrogram(self, stft_spectrogram):
+        if stft_spectrogram.dim() == 2:
+            out = torch.matmul(self.melfb, stft_spectrogram)
+        else:
+            stft_spectrogram = stft_spectrogram.squeeze()
+            out = torch.empty((stft_spectrogram.shape[0],
+                            self.hprms.n_mels,
+                            self.hprms.n_frames)).to(config.DEVICE) 
+            
+            for n in range(out.shape[0]):
+                out[n] = torch.matmul(self.melfb, stft_spectrogram[n])
         
         return out
     
@@ -71,7 +145,7 @@ class Network(nn.Module):
     
     def forward(self, melspec):
         stftspec_hat = self.compute_stft_spectrogram(melspec)
-        melspec_hat = self._compute_mel_spectrogram(stftspec_hat)
+        melspec_hat = self.compute_mel_spectrogram(stftspec_hat)
         
         return melspec_hat
         

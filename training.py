@@ -22,7 +22,7 @@ def eval_model(model: torch.nn.Module,
     
     with torch.no_grad():
         for n, batch in enumerate(tqdm(dataloader)):
-            melspec = batch["melspec"].to(config.DEVICE)
+            melspec = batch["melspectr"].to(config.DEVICE)
 
             melspec_hat = model(melspec.float())
                                     
@@ -48,8 +48,8 @@ def train_model(args, hparams):
 
     if args.weights_dir is not None:
         weights_dir = config.WEIGHTS_DIR / args.weights_dir
-        weights_path = weights_dir / (args.weights_dir + '_weights')
-        opt_path = weights_dir / (args.weights_dir + '_opt')
+        weights_path = weights_dir / 'weights'
+        opt_path = weights_dir / 'opt'
         
         model.load_state_dict(torch.load(weights_path))
         optimizer.load_state_dict(torch.load(opt_path))        
@@ -59,13 +59,13 @@ def train_model(args, hparams):
          
     else:
         weights_dir = config.WEIGHTS_DIR / args.experiment_name
-        weights_path = weights_dir / (args.experiment_name + '_weights')
-        opt_path = weights_dir / (args.experiment_name + '_opt')
+        weights_path = weights_dir / 'weights'
+        opt_path = weights_dir /  + 'opt'
         
         if not os.path.exists(weights_dir):
             os.mkdir(weights_dir)
             
-        training_state = {"epochs": 1,
+        training_state = {"epochs": 0,
                           "patience_epochs": 0,  
                           "best_val_loss": 9999,
                           "best_val_score": 0,
@@ -81,6 +81,7 @@ def train_model(args, hparams):
     print('       Training start')
     print('_____________________________')
     while training_state["patience_epochs"] < hparams.patience and training_state["epochs"] <= hparams.epochs:
+        training_state["epochs"] += 1 
         print(f'\n§ Train epoch: {training_state["epochs"]}\n')
         
         model.train()
@@ -89,7 +90,7 @@ def train_model(args, hparams):
    
         for n, batch in enumerate(tqdm(train_dl, desc=f'Epoch {training_state["epochs"]}')):   
             optimizer.zero_grad()  
-            melspec = batch["melspec"].to(config.DEVICE)
+            melspec = batch["melspectr"].to(config.DEVICE)
 
             melspec_hat = model(melspec.float())
             
@@ -128,12 +129,11 @@ def train_model(args, hparams):
         with open(training_state_path, "w") as fw:
             json.dump(training_state, fw)
             
-        training_state["epochs"] += 1 
         
         print(f'Epoch time: {int(((time()-start_epoch))//60)} min {int((((time()-start_epoch))%60)*60/100)} s')
         print('_____________________________')
 
-    print('Best epoch on Epoch ', training_state["best_epoch"])    
+    print('Best epoch was Epoch ', training_state["best_epoch"])    
     print('val SI-NSR Loss:  \t', training_state["val_loss_hist"][training_state["best_epoch"]-1])
     print('val SI-SNR Score: \t', training_state["best_val_score"])
     print('____________________________________________')
@@ -146,7 +146,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='prova')
+                        default='prova03')
     parser.add_argument('--weights_dir',
                         type=str,
                         default=None)

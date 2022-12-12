@@ -4,7 +4,6 @@ Generate and save melspectrograms (input) and spectrograms (target)
 import numpy as np
 import pandas as pd
 import librosa
-from pathlib import Path
 from argparse import Namespace
 
 import config

@@ -4,11 +4,11 @@ from pathlib import Path
 from argparse import Namespace
 
 def create_hparams():   # training hparams
-    hparams = Namespace(batch_size = 4,
+    hparams = Namespace(batch_size = 2,
                         epochs = 50,
                         patience = 20,
                         # audio hparams
-                        lr = 1e-3,
+                        lr = 1e-2,
                         sr = 16000,
                         n_mels = 96,
                         n_fft = 1024,
@@ -23,9 +23,11 @@ def create_hparams():   # training hparams
     
     audio_len_ = int(hparams.sr * hparams.audio_ms // 1000)
     n_frames_ = int(audio_len_ // hparams.hop_len + 1)
+    n_stft_ = int(hparams.n_fft//2 + 1)
     hparams = Namespace(**vars(hparams),
                         audio_len = audio_len_,
-                        n_frames = n_frames_)
+                        n_frames = n_frames_,
+                        n_stft = n_stft_)
     
     return hparams
 

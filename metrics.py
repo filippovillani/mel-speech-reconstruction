@@ -6,7 +6,7 @@ import config
 def mse(s_target: torch.Tensor,
         s_hat: torch.Tensor)->torch.Tensor:
     error = s_target - s_hat
-    return torch.mean(torch.square(error))
+    return torch.mean(torch.sum(torch.square(error), axis=1))
 
 def si_ssnr_metric(s_target: torch.Tensor,
                    s_hat: torch.Tensor)->torch.Tensor: 
