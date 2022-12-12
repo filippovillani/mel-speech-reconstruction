@@ -39,28 +39,32 @@ def train_model(args, hparams):
     experiment_dir = config.MELSPEC2SPEC_DIR / args.experiment_name
     if not os.path.exists(experiment_dir):
         os.mkdir(experiment_dir)
-    
-    training_state_path = experiment_dir / "train_state.json"
-    
+        
     model = Network(hparams).float().to(config.DEVICE)
     optimizer = torch.optim.Adam(params=model.parameters(),
                                  lr=hparams.lr)
 
     if args.weights_dir is not None:
-        weights_dir = config.WEIGHTS_DIR / args.weights_dir
-        weights_path = weights_dir / 'weights'
-        opt_path = weights_dir / 'opt'
+        best_weights_path = config.WEIGHTS_DIR / args.experiment_name / 'best_weights'
+        ckpt_weights_path = config.WEIGHTS_DIR / args.experiment_name / 'ckpt_weights'
+        ckpt_opt_path = config.WEIGHTS_DIR / args.experiment_name / 'ckpt_opt'
         
-        model.load_state_dict(torch.load(weights_path))
-        optimizer.load_state_dict(torch.load(opt_path))        
+        training_state_path = config.MELSPEC2SPEC_DIR / args.weights_dir / "train_state.json"
+        ckpt_weights_toload_path = config.WEIGHTS_DIR / args.weights_dir / 'ckpt_weights'
+        ckpt_opt_toload_path = config.WEIGHTS_DIR / args.weights_dir / 'ckpt_opt'
+        
+        model.load_state_dict(torch.load(ckpt_weights_toload_path))
+        optimizer.load_state_dict(torch.load(ckpt_opt_toload_path))        
         
         with open(training_state_path, "r") as fr:
             training_state = json.load(fr)
          
     else:
+        training_state_path = experiment_dir / "train_state.json"
         weights_dir = config.WEIGHTS_DIR / args.experiment_name
-        weights_path = weights_dir / 'weights'
-        opt_path = weights_dir /  + 'opt'
+        best_weights_path = weights_dir / 'best_weights'
+        ckpt_weights_path = weights_dir / 'ckpt_weights'
+        ckpt_opt_path = weights_dir /  + 'ckpt_opt'
         
         if not os.path.exists(weights_dir):
             os.mkdir(weights_dir)
@@ -123,13 +127,15 @@ def train_model(args, hparams):
             training_state["best_epoch"] = training_state["epochs"]
             print("\nSI-SNR on validation set improved")
             # Save the best model
-            torch.save(model.state_dict(), weights_path)
-            torch.save(optimizer.state_dict(), opt_path)
+            torch.save(model.state_dict(), best_weights_path)
                    
+        # Save checkpoint to resume training
         with open(training_state_path, "w") as fw:
             json.dump(training_state, fw)
             
-        
+        torch.save(model.state_dict(), ckpt_weights_path)
+        torch.save(optimizer.state_dict(), ckpt_opt_path)
+
         print(f'Epoch time: {int(((time()-start_epoch))//60)} min {int((((time()-start_epoch))%60)*60/100)} s')
         print('_____________________________')
 
