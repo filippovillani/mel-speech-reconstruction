@@ -72,7 +72,7 @@ def predict(args, hparams):
     
     # Compute stftspec with melfb pseudoinverse matrix
     stftspec_pinv = np.dot(np.linalg.pinv(model.melfb.cpu().numpy()), 
-                           melspec_hat.cpu().detach().numpy())
+                           melspec.cpu().detach().numpy())
     melspec_pinv = np.dot(model.melfb.cpu().numpy(), stftspec_pinv)
     out_pinv, _ = fast_griffin_lim(stftspec_pinv)
     sf.write(str(out_pinv_path), out_pinv, samplerate = hparams.sr) 
