@@ -6,7 +6,6 @@ import argparse
 
 from model import MelSpect2Spec
 from griffinlim import fast_griffin_lim
-from audioutils import melspectrogram, spectrogram
 from plots import plot_prediction
 import config
 
@@ -43,7 +42,7 @@ def open_audio(audio_path, hparams):
 
 def predict(args, hparams):
     experiment_dir = config.MELSPEC2SPEC_DIR / args.experiment_name
-    weights_path = config.WEIGHTS_DIR / args.experiment_name / 'weights'
+    weights_path = config.WEIGHTS_DIR / args.experiment_name / 'best_weights'
 
     audio_path = config.DATA_DIR / args.audio_path
     out_path = experiment_dir / 'gla_from_stftspec.wav' 
@@ -91,10 +90,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='prova03')
-    parser.add_argument('--weights_dir',
-                        type=str,
-                        default=None)
+                        default='04_mse_db')
     parser.add_argument('--audio_path',
                         type=str,
                         default='in.wav')

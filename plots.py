@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import librosa.display
 from scipy.fft import fft, fftfreq
 import json
-from torch import Tensor
 from argparse import Namespace
 
 import config
@@ -93,12 +92,14 @@ def plot_prediction(mel: np.ndarray,
                     experiment_name: str):
     
     out_path = config.MELSPEC2SPEC_DIR / experiment_name / 'prediction.png'
-    
-    plt.figure()
-    plt.subplot(3,1,1)
-    librosa.display.specshow(mel, sr=hparams.sr, n_fft=hparams.n_fft, hop_length=hparams.hop_len)
-    plt.subplot(3,1,2)
-    librosa.display.specshow(mel_hat, sr=hparams.sr, n_fft=hparams.n_fft, hop_length=hparams.hop_len)
-    plt.subplot(3,1,3)
-    librosa.display.specshow(mel_pinv, sr=hparams.sr, n_fft=hparams.n_fft, hop_length=hparams.hop_len)
+    fig, ax = plt.subplots(nrows=3, ncols=1, sharex=True)
+    img = librosa.display.specshow(mel, sr=hparams.sr, n_fft=hparams.n_fft, hop_length=hparams.hop_len, y_axis='mel', ax=ax[0])
+    ax[0].set(title='Mel-spectrogram')
+    ax[0].label_outer()
+    librosa.display.specshow(mel_hat, sr=hparams.sr, n_fft=hparams.n_fft, hop_length=hparams.hop_len, y_axis='mel', ax=ax[1])
+    ax[1].set(title='Mel-spectrogram predicted by NN')
+    ax[1].label_outer()
+    librosa.display.specshow(mel_pinv, sr=hparams.sr, n_fft=hparams.n_fft, hop_length=hparams.hop_len, y_axis='mel', ax=ax[2])
+    ax[2].set(title='Mel-spectrogram obtained through pseudo-inverse matrix')
+    plt.colorbar(img, ax=ax, format="%+2.f dB")
     plt.savefig(out_path)
