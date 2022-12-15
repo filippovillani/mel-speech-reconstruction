@@ -10,6 +10,7 @@ from model import MelSpect2Spec
 from dataset import build_dataloaders
 from metrics import si_nsr_loss, si_ssnr_metric, mse
 from plots import plot_train_hist
+from audioutils import db_to_amplitude
 import config
 
 def eval_model(model: torch.nn.Module, 
@@ -25,12 +26,12 @@ def eval_model(model: torch.nn.Module,
             melspec = batch["melspectr"].to(config.DEVICE)
 
             melspec_hat = model(melspec.float())
-                                    
-            snr_metric = si_ssnr_metric(melspec_hat, melspec)
-            score += ((1./(n+1))*(snr_metric-score))
-
+            
             nsr_loss = mse(melspec_hat, melspec)
             loss += ((1./(n+1))*(nsr_loss-loss))
+                         
+            snr_metric = si_ssnr_metric(db_to_amplitude(melspec_hat), db_to_amplitude(melspec))
+            score += ((1./(n+1))*(snr_metric-score))
 
     return score, loss
 
@@ -75,6 +76,7 @@ def train_model(args, hparams):
                           "best_val_score": 0,
                           "best_epoch": 0,
                           "train_loss_hist": [],
+                          "train_score_hist": [],
                           "val_loss_hist": [],
                           "val_score_hist": []}
 
@@ -90,21 +92,27 @@ def train_model(args, hparams):
         
         model.train()
         train_loss = 0.
+        train_score = 0.
         start_epoch = time()        
    
         for n, batch in enumerate(tqdm(train_dl, desc=f'Epoch {training_state["epochs"]}')):   
             optimizer.zero_grad()  
-            melspec = batch["melspectr"].to(config.DEVICE)
+            melspec = batch["melspectr"].float().to(config.DEVICE)
 
-            melspec_hat = model(melspec.float())
+            melspec_hat = model(melspec)
             
             loss = mse(melspec_hat, melspec)
             train_loss += ((1./(n+1))*(loss-train_loss))
             loss.backward()  
             optimizer.step()
 
+            snr_metric = si_ssnr_metric(db_to_amplitude(melspec_hat), db_to_amplitude(melspec))
+            train_score += ((1./(n+1))*(snr_metric-train_score))
+            
         training_state["train_loss_hist"].append(train_loss.item())
-        print(f'Training loss:     {training_state["train_loss_hist"][-1]:.4f}\n')
+        training_state["train_score_hist"].append(train_score.item())
+        print(f'Training loss:     {training_state["train_loss_hist"][-1]:.4f}')
+        print(f'Training SI-SNR:   {training_state["train_loss_hist"][-1]:.4f} dB\n')
         
         # Evaluate on the validation set
         print(f'Evaluating the model on validation set...')
@@ -115,11 +123,11 @@ def train_model(args, hparams):
         training_state["val_score_hist"].append(val_score.item())
         
         print(f'Validation Loss:   {val_loss:.4f}')
-        print(f'Validation SI_SNR: {val_score:.4f}')
+        print(f'Validation SI-SNR: {val_score:.4f} dB\n')
         
         if val_score <= training_state["best_val_score"]:
             training_state["patience_epochs"] += 1
-            print(f'\nBest epoch was Epoch {training_state["best_epoch"]}')
+            print(f'\nBest epoch was Epoch {training_state["best_epoch"]}: val_score={training_state["best_val_score"]} dB')
         else:
             training_state["patience_epochs"] = 0
             training_state["best_val_score"] = val_score.item()
