@@ -7,38 +7,10 @@ import argparse
 from model import MelSpect2Spec
 from griffinlim import fast_griffin_lim
 from plots import plot_prediction
+from audioutils import open_audio
 import config
 
-'''
-melspec.max() = 38.0408 
-melspec.min() = 6.0874e-23 
-melspec_hat.min() = -2.5113
-melspec_hat.max() = 36.4129
-'''
 
-
-def open_audio(audio_path, hparams):
-    # Open audio  
-    audio, _ = librosa.load(audio_path, sr=hparams.sr)
-    
-    # pad or trunc all vectors to the same size
-    if len(audio) < hparams.audio_len:
-        pad_begin_len = np.random.randint(0, hparams.audio_len - len(audio))
-        pad_end_len = hparams.audio_len - len(audio) - pad_begin_len
-        
-        pad_begin = np.zeros(pad_begin_len)
-        pad_end = np.zeros(pad_end_len)
-    
-        audio = np.concatenate((pad_begin, audio, pad_end))  
-        
-    else:
-        start_position = np.random.randint(0, len(audio) - hparams.audio_len)
-        end_position = start_position + hparams.audio_len
-        audio = audio[start_position:end_position]
-    
-    # Normalize audio
-    audio = (audio - audio.mean()) / (audio.std() + 1e-12)
-    return audio
 
 def predict(args, hparams):
     experiment_dir = config.MELSPEC2SPEC_DIR / args.experiment_name
