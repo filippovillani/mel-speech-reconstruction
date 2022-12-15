@@ -4,11 +4,9 @@ import librosa
 import matplotlib.pyplot as plt
 
 from metrics import si_ssnr_metric 
-import config
 
 def griffin_lim_librosa(spectrogram: np.ndarray, 
                         n_iter: int = 512, 
-                        sr: int = 16000,
                         init: str = "random"):
     
     x = librosa.griffinlim(spectrogram, n_iter=n_iter, init=init)      
@@ -84,5 +82,3 @@ def fast_griffin_lim(spectrogram: np.ndarray,
     x /= np.max(np.abs(x))
 
     return x, snr_hist
-
-        

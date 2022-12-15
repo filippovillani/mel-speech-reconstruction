@@ -23,7 +23,6 @@ def main(args):
     if args.gla_type == 'librosa':
         x_gla = griffin_lim_librosa(spectrogram, 
                                     args.n_iter, 
-                                    sr=sr, 
                                     init=args.phase_init) 
         plot_reconstructed_audio(audio, x_gla, gla_path)
         sf.write(out_audio_path, x_gla, samplerate=sr)
@@ -33,6 +32,7 @@ def main(args):
             json.dump(results, fp)
         
         return
+    
     
     elif args.gla_type == 'gla':
         x_gla, snr_hist = griffin_lim_base(spectrogram, 
@@ -87,7 +87,7 @@ if __name__ == "__main__":
                         type=str,
                         choices=['zeros', 'random'],
                         help='Type of initialization for the phase',
-                        default='zeros')
+                        default='random')
     parser.add_argument('--eval',
                         type=bool,
                         default=True)
