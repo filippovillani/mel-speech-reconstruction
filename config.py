@@ -33,7 +33,8 @@ def create_hparams():   # training hparams
     return hparams
 
 SEED = 42
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+# DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+DEVICE = 'cpu'
 
 MAIN_DIR = Path(__file__).parent
 

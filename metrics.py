@@ -6,7 +6,7 @@ import config
 def mse(s_target: torch.Tensor,
         s_hat: torch.Tensor)->torch.Tensor:
     error = s_target - s_hat
-    return torch.mean(torch.sum(torch.square(error), axis=1))
+    return torch.mean(torch.square(error))
 
 def si_ssnr_metric(s_target: torch.Tensor,
                    s_hat: torch.Tensor)->torch.Tensor: 
@@ -28,7 +28,7 @@ def si_ssnr_metric(s_target: torch.Tensor,
                          torch.sum(torch.pow(s_target, 2)) + 1e-12)
     
     e_noise = s_hat - s_target
-    SI_SNR_linear = torch.divide(torch.sum(torch.pow(s_target, 2)), torch.sum(torch.pow(e_noise, 2)))
+    SI_SNR_linear = torch.divide(torch.sum(torch.pow(s_target, 2)), torch.sum(torch.pow(e_noise, 2))  + 1e-12)
     SI_SNR = torch.mul(torch.log10(SI_SNR_linear), 10.)
     return SI_SNR 
 

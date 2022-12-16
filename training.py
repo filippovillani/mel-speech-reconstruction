@@ -8,9 +8,9 @@ from tqdm import tqdm
 
 from model import MelSpect2Spec
 from dataset import build_dataloaders
-from metrics import si_nsr_loss, si_ssnr_metric, mse
+from metrics import si_ssnr_metric, mse
 from plots import plot_train_hist
-from audioutils import db_to_amplitude
+from audioutils import to_linear, denormalize_db_spectr
 import config
 
 def eval_model(model: torch.nn.Module, 
@@ -18,22 +18,24 @@ def eval_model(model: torch.nn.Module,
 
     model.eval()
 
-    score = 0.
-    loss = 0.
+    val_score = 0.
+    val_loss = 0.
     
     with torch.no_grad():
         for n, batch in enumerate(tqdm(dataloader)):
-            melspec = batch["melspectr"].to(config.DEVICE)
+            melspec, stftspec = batch["melspectr"].float().to(config.DEVICE), batch["spectr"].float().to(config.DEVICE)
+            melspec, stftspec = melspec.unsqueeze(1), stftspec.unsqueeze(1)
 
-            melspec_hat = model(melspec.float())
+            stftspec_hat = model(melspec.float())
             
-            nsr_loss = mse(melspec_hat, melspec)
-            loss += ((1./(n+1))*(nsr_loss-loss))
+            loss = mse(stftspec, stftspec_hat)
+            val_loss += ((1./(n+1))*(loss-val_loss))
                          
-            snr_metric = si_ssnr_metric(db_to_amplitude(melspec_hat), db_to_amplitude(melspec))
-            score += ((1./(n+1))*(snr_metric-score))
+            score = si_ssnr_metric(to_linear(denormalize_db_spectr(stftspec_hat)), 
+                                    to_linear(denormalize_db_spectr(stftspec)))
+            val_score += ((1./(n+1))*(score-val_score))
 
-    return score, loss
+    return val_score, val_loss
 
 def train_model(args, hparams):
     
@@ -97,22 +99,24 @@ def train_model(args, hparams):
    
         for n, batch in enumerate(tqdm(train_dl, desc=f'Epoch {training_state["epochs"]}')):   
             optimizer.zero_grad()  
-            melspec = batch["melspectr"].float().to(config.DEVICE)
-
-            melspec_hat = model(melspec)
+            melspec, stftspec = batch["melspectr"].float().to(config.DEVICE), batch["spectr"].float().to(config.DEVICE)
+            melspec, stftspec = melspec.unsqueeze(1), stftspec.unsqueeze(1)
+            stftspec_hat = model(melspec)
             
-            loss = mse(melspec_hat, melspec)
+            loss = mse(stftspec_hat, stftspec)
             train_loss += ((1./(n+1))*(loss-train_loss))
             loss.backward()  
             optimizer.step()
 
-            snr_metric = si_ssnr_metric(db_to_amplitude(melspec_hat), db_to_amplitude(melspec))
+            snr_metric = si_ssnr_metric(to_linear(denormalize_db_spectr(stftspec_hat)), 
+                                        to_linear(denormalize_db_spectr(stftspec)))
             train_score += ((1./(n+1))*(snr_metric-train_score))
+            
             
         training_state["train_loss_hist"].append(train_loss.item())
         training_state["train_score_hist"].append(train_score.item())
         print(f'Training loss:     {training_state["train_loss_hist"][-1]:.4f}')
-        print(f'Training SI-SNR:   {training_state["train_loss_hist"][-1]:.4f} dB\n')
+        print(f'Training SI-SNR:   {training_state["train_score_hist"][-1]:.4f} dB\n')
         
         # Evaluate on the validation set
         print(f'Evaluating the model on validation set...')
@@ -160,7 +164,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='prova04')
+                        default='05_mse_db')
     parser.add_argument('--weights_dir',
                         type=str,
                         default=None)

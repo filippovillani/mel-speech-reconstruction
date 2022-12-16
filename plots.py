@@ -87,19 +87,15 @@ def plot_train_hist(experiment_name: str):
 
 def plot_prediction(mel: np.ndarray,
                     mel_hat: np.ndarray,
-                    mel_pinv: np.ndarray,
                     hparams: Namespace,
                     experiment_name: str):
     
     out_path = config.MELSPEC2SPEC_DIR / experiment_name / 'prediction.png'
-    fig, ax = plt.subplots(nrows=3, ncols=1, sharex=True)
+    fig, ax = plt.subplots(nrows=2, ncols=1, sharex=True)
     img = librosa.display.specshow(mel, sr=hparams.sr, n_fft=hparams.n_fft, hop_length=hparams.hop_len, x_axis='time', y_axis='mel', ax=ax[0])
     ax[0].set(title='Mel-spectrogram')
     ax[0].label_outer()
     librosa.display.specshow(mel_hat, sr=hparams.sr, n_fft=hparams.n_fft, hop_length=hparams.hop_len, x_axis='time', y_axis='mel', ax=ax[1])
     ax[1].set(title='Mel-spectrogram predicted by NN')
-    ax[1].label_outer()
-    librosa.display.specshow(mel_pinv, sr=hparams.sr, n_fft=hparams.n_fft, hop_length=hparams.hop_len, x_axis='time', y_axis='mel', ax=ax[2])
-    ax[2].set(title='Mel-spectrogram obtained through pseudo-inverse matrix')
     plt.colorbar(img, ax=ax, format="%+2.f dB")
     plt.savefig(out_path)

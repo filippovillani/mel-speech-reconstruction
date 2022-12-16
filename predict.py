@@ -7,7 +7,7 @@ import argparse
 from model import MelSpect2Spec
 from griffinlim import fast_griffin_lim
 from plots import plot_prediction
-from audioutils import open_audio
+from audioutils import open_audio, to_db, normalize_db_spectr, denormalize_db_spectr, to_linear
 import config
 
 
@@ -26,32 +26,28 @@ def predict(args, hparams):
                                    n_fft=hparams.n_fft,
                                    hop_length=hparams.hop_len))
     
-    out, _ = fast_griffin_lim(stftspec)
-    sf.write(str(out_path), out, samplerate = hparams.sr)
+    #out, _ = fast_griffin_lim(stftspec)
+    #sf.write(str(out_path), out, samplerate = hparams.sr)
 
     # Instatiate the model
     model = MelSpect2Spec(hparams).float().to(config.DEVICE)
     model.eval()
     model.load_state_dict(torch.load(weights_path))
     
-    # Compute melspectrogram of example, then stft through NN and then apply gla
+    # Compute melspectrogram of example
     melspec = torch.matmul(model.melfb, torch.as_tensor(stftspec).float().to(config.DEVICE))
+    melspec_db = normalize_db_spectr(to_db(melspec))
     
-    stftspec_hat = model.compute_stft_spectrogram(melspec.unsqueeze(0))
-    melspec_hat = model.compute_mel_spectrogram(stftspec_hat.squeeze())
+    stftspec_hat_db = model(melspec_db.unsqueeze(0).unsqueeze(0))
+    stftspec_hat = to_linear(denormalize_db_spectr(stftspec_hat_db))  
+    melspec_hat_db = to_db(torch.matmul(model.melfb, stftspec_hat.squeeze()))
     out_hat, _ = fast_griffin_lim(np.abs(stftspec_hat.cpu().detach().numpy().squeeze()))
     sf.write(str(out_hat_path), out_hat, samplerate = hparams.sr)   
     
-    # Compute stftspec with melfb pseudoinverse matrix
-    stftspec_pinv = np.dot(np.linalg.pinv(model.melfb.cpu().numpy()), 
-                           melspec.cpu().detach().numpy())
-    melspec_pinv = np.dot(model.melfb.cpu().numpy(), stftspec_pinv)
-    out_pinv, _ = fast_griffin_lim(stftspec_pinv)
-    sf.write(str(out_pinv_path), out_pinv, samplerate = hparams.sr) 
+
       
-    plot_prediction(melspec.cpu().numpy(), 
-                    melspec_hat.cpu().detach().numpy(), 
-                    melspec_pinv,
+    plot_prediction(melspec_db.cpu().numpy(), 
+                    melspec_hat_db.cpu().detach().numpy(), 
                     hparams, 
                     args.experiment_name)
     
@@ -62,7 +58,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='04_mse_db')
+                        default='05_mse_db')
     parser.add_argument('--audio_path',
                         type=str,
                         default='in.wav')

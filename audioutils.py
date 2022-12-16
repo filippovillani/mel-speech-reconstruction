@@ -1,13 +1,14 @@
 import numpy as np
+import torch
 import librosa 
 
 def to_db(spectrogram):
-    spec_max = np.max(spectrogram)
-    spec_db = np.clip(20 * np.log10(spectrogram / spec_max + 1e-12), a_min=-80, a_max=0)
+    spec_max = torch.max(spectrogram)
+    spec_db = torch.clamp(20 * torch.log10(spectrogram / spec_max + 1e-12), min=-80, max=0)
     return spec_db
 
 def to_linear(spectrogram_db):
-    spec_lin = np.power(10, spectrogram_db / 20)
+    spec_lin = torch.pow(10, spectrogram_db / 20)
     return spec_lin
 
 def normalize_db_spectr(spectrogram):

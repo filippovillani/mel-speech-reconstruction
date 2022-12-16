@@ -5,7 +5,7 @@ import numpy as np
 import os
 from typing import Tuple
 
-from audioutils import amplitude_to_db
+from audioutils import to_db, normalize_db_spectr
 import config
 
 def build_dataloaders(data_dir: str,
@@ -38,8 +38,8 @@ class MelSTFTDataset(Dataset):
     def __getitem__(self, idx):
         
         wav = torch.from_numpy(np.load(self.wav_list_path[idx]))
-        melspectr = torch.from_numpy(amplitude_to_db(np.load(self.melspectr_list_path[idx])))
-        spectr = torch.from_numpy(amplitude_to_db(np.load(self.spectr_list_path[idx])))
+        melspectr = normalize_db_spectr(to_db(torch.from_numpy(np.load(self.melspectr_list_path[idx]))))
+        spectr = normalize_db_spectr(to_db(torch.from_numpy(np.load(self.spectr_list_path[idx]))))
         
         return {'wav': wav,
                 'melspectr': melspectr,
