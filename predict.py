@@ -38,14 +38,14 @@ def predict(args, hparams):
     stftspec_hat_db_norm = model(melspec_db_norm.unsqueeze(0).unsqueeze(0))
     
     # just save audio
-    stftspec_hat = to_linear(denormalize_db_spectr(stftspec_hat_db_norm))  
-    out_hat, _ = fast_griffin_lim(np.abs(stftspec_hat.cpu().detach().numpy().squeeze()))
-    sf.write(str(out_hat_path), out_hat, samplerate = hparams.sr)   
+    # stftspec_hat = to_linear(denormalize_db_spectr(stftspec_hat_db_norm))  
+    # out_hat, _ = fast_griffin_lim(np.abs(stftspec_hat.cpu().detach().numpy().squeeze()))
+    # sf.write(str(out_hat_path), out_hat, samplerate = hparams.sr)   
     
 
       
-    plot_prediction(denormalize_db_spectr(stftspec_hat_db_norm).cpu().numpy().squeeze(), 
-                    denormalize_db_spectr(stftspec_hat_db_norm).cpu().detach().numpy().squeeze(), 
+    plot_prediction(denormalize_db_spectr(stftspec_db_norm).cpu().numpy().squeeze(), 
+                    stftspec_hat_db_norm.cpu().detach().numpy().squeeze(), 
                     hparams, 
                     args.experiment_name)
     
