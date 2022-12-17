@@ -9,9 +9,7 @@ class UNet(nn.Module):
         
         super(UNet, self).__init__()
         
-        self.pinvblock = PInvBlock(n_mels=hparams.n_mels,
-                                   n_fft = hparams.n_fft, 
-                                   sr = hparams.sr)
+        self.pinvblock = PInvBlock(hparams)
         self.contrblock1 = ContractingBlock(in_channels = 1,
                                             out_channels = hparams.unet_first_channels,
                                             kernel_size = 3)
