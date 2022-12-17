@@ -23,16 +23,17 @@ def eval_model(model: torch.nn.Module,
     
     with torch.no_grad():
         for n, batch in enumerate(tqdm(dataloader)):
-            melspec, stftspec = batch["melspectr"].float().to(config.DEVICE), batch["spectr"].float().to(config.DEVICE)
-            melspec, stftspec = melspec.unsqueeze(1), stftspec.unsqueeze(1)
-
-            stftspec_hat = model(melspec.float())
+            stftspec_db_norm = batch["spectr"].float().to(config.DEVICE)
+            melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm)
+            melspec_db_norm = melspec_db_norm.unsqueeze(1)
             
-            loss = mse(stftspec, stftspec_hat)
+            stftspec_hat_db_norm = model(melspec_db_norm)
+            
+            loss = mse(stftspec_hat_db_norm, stftspec_db_norm)
             val_loss += ((1./(n+1))*(loss-val_loss))
                          
-            score = si_ssnr_metric(to_linear(denormalize_db_spectr(stftspec_hat)), 
-                                    to_linear(denormalize_db_spectr(stftspec)))
+            score = si_ssnr_metric(to_linear(denormalize_db_spectr(stftspec_hat_db_norm)), 
+                                    to_linear(denormalize_db_spectr(stftspec_db_norm)))
             val_score += ((1./(n+1))*(score-val_score))
 
     return val_score, val_loss
@@ -99,19 +100,21 @@ def train_model(args, hparams):
    
         for n, batch in enumerate(tqdm(train_dl, desc=f'Epoch {training_state["epochs"]}')):   
             optimizer.zero_grad()  
-            melspec, stftspec = batch["melspectr"].float().to(config.DEVICE), batch["spectr"].float().to(config.DEVICE)
-            melspec, stftspec = melspec.unsqueeze(1), stftspec.unsqueeze(1)
-            stftspec_hat = model(melspec)
+            stftspec_db_norm = batch["spectr"].float().to(config.DEVICE)
+            melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm)
+            melspec_db_norm = melspec_db_norm.unsqueeze(1)
             
-            loss = mse(stftspec_hat, stftspec)
+            stftspec_hat_db_norm = model(melspec_db_norm)
+            
+            loss = mse(stftspec_hat_db_norm, stftspec_db_norm)
             train_loss += ((1./(n+1))*(loss-train_loss))
             loss.backward()  
             optimizer.step()
 
-            snr_metric = si_ssnr_metric(to_linear(denormalize_db_spectr(stftspec_hat)), 
-                                        to_linear(denormalize_db_spectr(stftspec)))
+            snr_metric = si_ssnr_metric(to_linear(denormalize_db_spectr(stftspec_hat_db_norm)), 
+                                        to_linear(denormalize_db_spectr(stftspec_db_norm)))
             train_score += ((1./(n+1))*(snr_metric-train_score))
-            
+
             
         training_state["train_loss_hist"].append(train_loss.item())
         training_state["train_score_hist"].append(train_score.item())
@@ -131,7 +134,7 @@ def train_model(args, hparams):
         
         if val_score <= training_state["best_val_score"]:
             training_state["patience_epochs"] += 1
-            print(f'\nBest epoch was Epoch {training_state["best_epoch"]}: val_score={training_state["best_val_score"]} dB')
+            print(f'\nBest epoch was Epoch {training_state["best_epoch"]}: Validation SI-SNR = {training_state["best_val_score"]} dB')
         else:
             training_state["patience_epochs"] = 0
             training_state["best_val_score"] = val_score.item()
@@ -164,7 +167,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='05_mse_db')
+                        default='prova')
     parser.add_argument('--weights_dir',
                         type=str,
                         default=None)
