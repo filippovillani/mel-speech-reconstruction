@@ -17,10 +17,7 @@ def create_hparams():   # training hparams
                         audio_ms = 4080,
                         min_noise_ms = 1000,
                         # model hparams
-                        in_channels = [1, 8, 16, 32, 64],
-                        out_channels = [8, 16, 32, 64, 128],
-                        kernel_size = (2,3),
-                        dropout=0.4)
+                        unet_first_channels = 32)
     
     audio_len_ = int(hparams.sr * hparams.audio_ms // 1000)
     n_frames_ = int(audio_len_ // hparams.hop_len + 1)
@@ -33,8 +30,8 @@ def create_hparams():   # training hparams
     return hparams
 
 SEED = 42
-# DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-DEVICE = 'cpu'
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+# DEVICE = 'cpu'
 
 MAIN_DIR = Path(__file__).parent
 

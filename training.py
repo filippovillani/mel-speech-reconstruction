@@ -6,7 +6,7 @@ import argparse
 from time import time
 from tqdm import tqdm
 
-from model import MelSpect2Spec
+from model import UNet
 from dataset import build_dataloaders
 from metrics import si_ssnr_metric, mse
 from plots import plot_train_hist
@@ -43,7 +43,7 @@ def train_model(args, hparams):
     if not os.path.exists(experiment_dir):
         os.mkdir(experiment_dir)
         
-    model = MelSpect2Spec(hparams).float().to(config.DEVICE)
+    model = UNet(hparams).float().to(config.DEVICE)
     optimizer = torch.optim.Adam(params=model.parameters(),
                                  lr=hparams.lr)
 
