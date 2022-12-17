@@ -27,26 +27,25 @@ def predict(args, hparams):
 
     stftspec_db_norm = normalize_db_spectr(to_db(stftspec))
     # Instatiate the model
-    model = UNet(hparams).float().to(config.DEVICE)
-    # model = PInvBlock(hparams)
+    # model = UNet(hparams).float().to(config.DEVICE)
+    model = PInvBlock(hparams)
     model.eval()
-    model.load_state_dict(torch.load(weights_path))
+    # model.load_state_dict(torch.load(weights_path))
     
     # Compute melspectrogram of example
-    melspec_db_norm = torch.matmul(model.pinvblock.melfb, torch.as_tensor(stftspec_db_norm).float().to(config.DEVICE))
-    # melspec_db_norm = torch.matmul(model.melfb, torch.as_tensor(stftspec_db_norm).float().to(config.DEVICE))
-    
+    # melspec_db_norm = torch.matmul(model.pinvblock.melfb, torch.as_tensor(stftspec_db_norm).float().to(config.DEVICE))
+    melspec_db_norm = torch.matmul(model.melfb, torch.as_tensor(stftspec_db_norm).float().to(config.DEVICE))
     stftspec_hat_db_norm = model(melspec_db_norm.unsqueeze(0).unsqueeze(0))
     
+    # just save audio
     stftspec_hat = to_linear(denormalize_db_spectr(stftspec_hat_db_norm))  
-    melspec_hat_db = to_db(torch.matmul(model.pinvblock.melfb, stftspec_hat.squeeze()))
     out_hat, _ = fast_griffin_lim(np.abs(stftspec_hat.cpu().detach().numpy().squeeze()))
     sf.write(str(out_hat_path), out_hat, samplerate = hparams.sr)   
     
 
       
-    plot_prediction(denormalize_db_spectr(melspec_db_norm).cpu().numpy(), 
-                    melspec_hat_db.cpu().detach().numpy(), 
+    plot_prediction(denormalize_db_spectr(stftspec_hat_db_norm).cpu().numpy().squeeze(), 
+                    denormalize_db_spectr(stftspec_hat_db_norm).cpu().detach().numpy().squeeze(), 
                     hparams, 
                     args.experiment_name)
     
