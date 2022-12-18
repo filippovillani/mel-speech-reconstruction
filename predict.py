@@ -48,7 +48,7 @@ def predict(args, hparams):
                     args.experiment_name)
     
     metrics = {"mse": float(mse(stftspec_db_norm, stftspec_hat_db_norm)),
-               "ssnr": float(si_ssnr_metric(stftspec_db_norm, stftspec_hat_db_norm))}
+               "si-ssnr": float(si_ssnr_metric(stftspec_db_norm, stftspec_hat_db_norm))}
     
     with open(metrics_path, "w") as fp:
         json.dump(metrics, fp)

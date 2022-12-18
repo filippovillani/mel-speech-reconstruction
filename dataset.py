@@ -11,15 +11,18 @@ import config
 def build_dataloaders(data_dir: str,
                       hparams: Namespace)->Tuple[DataLoader, DataLoader]:
     ds = MelSTFTDataset(data_dir)
-    train_ds, val_ds = random_split(ds, [0.7, 0.3], generator=torch.Generator().manual_seed(config.SEED))
+    train_ds, val_ds, test_ds = random_split(ds, [0.6, 0.2, 0.2], generator=torch.Generator().manual_seed(config.SEED))
     train_dl = DataLoader(train_ds, 
                           hparams.batch_size, 
                           shuffle=True)
     val_dl = DataLoader(val_ds, 
                         hparams.batch_size, 
                         shuffle=False)
+    test_dl = DataLoader(test_ds, 
+                        hparams.batch_size, 
+                        shuffle=False)
     
-    return train_dl, val_dl
+    return train_dl, val_dl, test_dl
     
 class MelSTFTDataset(Dataset):
     def __init__(self, 
@@ -51,7 +54,7 @@ class MelSTFTDataset(Dataset):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import librosa.display
-    _, val_dl = build_dataloaders(config.DATA_DIR, config.create_hparams())
+    _, val_dl, _ = build_dataloaders(config.DATA_DIR, config.create_hparams())
     
     for el in val_dl:
         hparams = config.create_hparams()

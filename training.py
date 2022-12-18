@@ -8,35 +8,12 @@ from tqdm import tqdm
 
 from model import UNet
 from dataset import build_dataloaders
+from evaluate import eval_model
 from metrics import si_ssnr_metric, mse
 from plots import plot_train_hist
 from audioutils import to_linear, denormalize_db_spectr
 import config
 
-def eval_model(model: torch.nn.Module, 
-               dataloader: DataLoader)->torch.Tensor:
-
-    model.eval()
-
-    val_score = 0.
-    val_loss = 0.
-    
-    with torch.no_grad():
-        for n, batch in enumerate(tqdm(dataloader)):
-            stftspec_db_norm = batch["spectr"].float().to(config.DEVICE)
-            melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm)
-            melspec_db_norm = melspec_db_norm.unsqueeze(1)
-            
-            stftspec_hat_db_norm = model(melspec_db_norm)
-            
-            loss = mse(stftspec_hat_db_norm, stftspec_db_norm)
-            val_loss += ((1./(n+1))*(loss-val_loss))
-                         
-            score = si_ssnr_metric(to_linear(denormalize_db_spectr(stftspec_hat_db_norm)), 
-                                    to_linear(denormalize_db_spectr(stftspec_db_norm)))
-            val_score += ((1./(n+1))*(score-val_score))
-
-    return val_score, val_loss
 
 def train_model(args, hparams):
     
