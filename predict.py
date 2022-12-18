@@ -64,13 +64,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='07_unet02')
+                        default='09_unet03')
     parser.add_argument('--audio_path',
                         type=str,
                         default='in.wav')
     parser.add_argument('--best_weights',
                         type=bool,
-                        default=False)
+                        default=True)
     
     args = parser.parse_args()
     predict(args, hparams)

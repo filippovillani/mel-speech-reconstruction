@@ -34,8 +34,7 @@ def eval_model(model: torch.nn.Module,
             score = si_ssnr_metric(to_linear(denormalize_db_spectr(stftspec_hat_db_norm)), 
                                     to_linear(denormalize_db_spectr(stftspec_db_norm)))
             val_score += ((1./(n+1))*(score-val_score))
-            if n == 100:
-                break
+            
     return val_score, val_loss
 
 def build_model(weights_dir: Path, 
@@ -68,7 +67,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights_dir',
                         type=str,
-                        default='07_unet02')
+                        default='09_unet03')
     parser.add_argument('--best_weights',
                         type=bool,
                         default=False)

@@ -4,7 +4,7 @@ from pathlib import Path
 from argparse import Namespace
 
 def create_hparams():   # training hparams
-    hparams = Namespace(batch_size = 4,
+    hparams = Namespace(batch_size = 1,
                         epochs = 70,
                         patience = 20,
                         # audio hparams
