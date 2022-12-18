@@ -61,7 +61,7 @@ def train_model(args, hparams):
                           "val_score_hist": []}
 
     # Build training and validation 
-    train_dl, val_dl = build_dataloaders(config.DATA_DIR, hparams) 
+    train_dl, val_dl, _ = build_dataloaders(config.DATA_DIR, hparams) 
 
     print('_____________________________')
     print('       Training start')

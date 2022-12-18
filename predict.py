@@ -14,12 +14,16 @@ import config
 
 
 def predict(args, hparams):
-    experiment_dir = config.MELSPEC2SPEC_DIR / args.experiment_name
-    weights_path = config.WEIGHTS_DIR / args.experiment_name / 'ckpt_weights'
+    
+    weights_path = 'best_weights' if args.best_weights else 'ckpt_weights'
+    weights_path = config.WEIGHTS_DIR / args.experiment_name / weights_path
 
-    audio_path = config.DATA_DIR / args.audio_path
+    experiment_dir = config.MELSPEC2SPEC_DIR / args.experiment_name
     out_hat_path = experiment_dir / 'gla_from_melspec.wav'
     metrics_path = experiment_dir / 'metrics.json'
+    
+    audio_path = config.DATA_DIR / args.audio_path
+
     # Compute stft of example and then apply gla to retrieve the waveform back
     audio = open_audio(audio_path, hparams)
     stftspec = torch.abs(torch.as_tensor(librosa.stft(y=audio, 
@@ -64,6 +68,9 @@ if __name__ == "__main__":
     parser.add_argument('--audio_path',
                         type=str,
                         default='in.wav')
+    parser.add_argument('--best_weights',
+                        type=bool,
+                        default=False)
     
     args = parser.parse_args()
     predict(args, hparams)

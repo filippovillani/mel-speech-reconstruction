@@ -55,8 +55,8 @@ def main(args):
     model = build_model(args.weights_dir, hparams, args.best_weights)
     _, _, test_dl = build_dataloaders(config.DATA_DIR, hparams)
     test_score, test_loss = eval_model(model, test_dl)
-    test_metrics = {"si-ssnr": float(test_score),
-                   "mse": float(test_loss)}
+    test_metrics = {"mse": float(test_loss),
+                    "si-ssnr": float(test_score)}
     test_metrics_path = config.MELSPEC2SPEC_DIR / args.weights_dir / 'test_metrics.json'
         
     with open(test_metrics_path, "w") as fp:
