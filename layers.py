@@ -92,7 +92,7 @@ class ExpandingBlock(nn.Module):
         self.dropE = nn.Dropout(0.3)
         
     def forward(self, x, x_cat): 
-        x = torch.cat((x, x_cat), dim=1) 
+        x = torch.cat((x, x_cat), axis=1) 
         x = self.upsamp(x)
         x = self.convE1(x) 
         x = self.bnE1(x) 
