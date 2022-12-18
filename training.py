@@ -92,8 +92,6 @@ def train_model(args, hparams):
                                         to_linear(denormalize_db_spectr(stftspec_db_norm)))
             train_score += ((1./(n+1))*(snr_metric-train_score))
 
-            if n == 100:
-                break
         training_state["train_loss_hist"].append(train_loss.item())
         training_state["train_score_hist"].append(train_score.item())
         print(f'Training loss:     {training_state["train_loss_hist"][-1]:.4f}')
@@ -148,6 +146,7 @@ if __name__ == "__main__":
                         default='09_unet03')
     parser.add_argument('--weights_dir',
                         type=str,
+                        help="directory containing the the model's checkpoint weights",
                         default=None)
     
     args = parser.parse_args()
