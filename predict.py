@@ -1,7 +1,6 @@
 import torch
 import librosa
 import soundfile as sf
-import numpy as np
 import argparse
 import json
 
@@ -39,7 +38,7 @@ def predict(args, hparams):
     
     # just save audio
     stftspec_hat = to_linear(denormalize_db_spectr(stftspec_hat_db_norm))  
-    out_hat, _ = fast_griffin_lim(np.abs(stftspec_hat.cpu().detach().numpy().squeeze()))
+    out_hat, _ = fast_griffin_lim(torch.abs(stftspec_hat).cpu().detach().numpy().squeeze())
     sf.write(str(out_hat_path), out_hat, samplerate = hparams.sr)   
 
       
