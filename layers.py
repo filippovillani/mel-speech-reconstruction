@@ -101,7 +101,7 @@ class ExpandingBlock(nn.Module):
         x = self.bnE2(x)
         x = self.reluE2(x)
         out = self.dropE(x)
-            
+        
         return out
     
 
@@ -127,7 +127,7 @@ class OutBlock(nn.Module):
         x = self.reluOut1(x)
         x = self.convOut2(x)
         out = self.reluOut2(x)
-        
+        out = (out - torch.min(out)) / (torch.max(out) - torch.min(out))
         return out
 
 class PInvBlock(nn.Module):
