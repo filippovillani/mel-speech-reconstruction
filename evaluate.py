@@ -67,7 +67,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights_dir',
                         type=str,
-                        default='06_unet01')
+                        default='07_unet02')
     parser.add_argument('--best_weights',
                         type=bool,
                         default=False)

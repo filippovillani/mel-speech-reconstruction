@@ -144,7 +144,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='prova')
+                        default='07_unet02')
     parser.add_argument('--weights_dir',
                         type=str,
                         default=None)
