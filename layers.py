@@ -19,9 +19,7 @@ class ContractingBlock(nn.Module):
             out_channels = in_channels * 2
         elif in_channels == 1 and out_channels is None:
             raise RuntimeError("If in_channels==1 you need to provide out_channels")
-            
-        conv_cat_channels = out_channels * 2
-        
+                    
         self.convC1 = nn.Conv2d(in_channels = in_channels, 
                                 out_channels = out_channels, 
                                 kernel_size = kernel_size, 
@@ -35,11 +33,6 @@ class ContractingBlock(nn.Module):
         self.reluC2 = nn.ReLU() 
         self.dropC = nn.Dropout(0.3)
         self.poolC = nn.MaxPool2d(kernel_size=2)
-        self.conv_cat = nn.Conv2d(in_channels = out_channels, 
-                                out_channels = conv_cat_channels, 
-                                kernel_size = kernel_size,
-                                padding = 'same')
-        self.conv_relu = nn.ReLU()
 
     def forward(self, x):
         """ 
@@ -48,8 +41,8 @@ class ContractingBlock(nn.Module):
 
         Returns:
             out (torch.Tensor): 
-                if max_pool: [batch_size, in_channels * 2, n_mels // 2, n_frames // 2]
-                else:        [batch_size, in_channels * 2, n_mels, n_frames]
+                if last_block: [batch_size, in_channels * 2, n_mels // 2, n_frames // 2]
+                else:          [batch_size, in_channels * 2, n_mels, n_frames]
         """
         x = self.convC1(x)
         x = self.bnC1(x)        
@@ -62,38 +55,45 @@ class ContractingBlock(nn.Module):
             x_cat = None
         else:
             out = self.poolC(x_cat)
-            x_cat = self.conv_cat(out)       
-            x_cat = self.conv_relu(x_cat)
         return out, x_cat
     
 
 class ExpandingBlock(nn.Module):
     def __init__(self,
                  in_channels,
-                 kernel_size):
+                 kernel_size,
+                 last_block = False):
 
         super(ExpandingBlock, self).__init__()
-        mid_channels = in_channels // 2
-        out_channels = in_channels // 4
         
+        out_channels = in_channels // 2
+        if last_block:
+            self.upconv = nn.Conv2d(in_channels = in_channels, 
+                                  out_channels = in_channels//2, 
+                                  kernel_size = (4,3),
+                                  padding = (2,1))
+        else:
+            self.upconv = nn.Conv2d(in_channels, out_channels, kernel_size, padding='same')
         self.upsamp = nn.Upsample(scale_factor=2, 
                                 mode='bilinear', 
                                 align_corners=True)
 
-        self.convE1 = nn.Conv2d(in_channels, mid_channels, kernel_size, padding='same')
+        self.convE1 = nn.Conv2d(in_channels, out_channels, kernel_size, padding='same')
             
         nn.init.kaiming_normal_(self.convE1.weight)
-        self.bnE1 = nn.BatchNorm2d(mid_channels)
+        self.bnE1 = nn.BatchNorm2d(out_channels)
         self.reluE1 = nn.ReLU() 
-        self.convE2 = nn.Conv2d(mid_channels, out_channels, kernel_size, padding='same')
+        self.convE2 = nn.Conv2d(out_channels, out_channels, kernel_size, padding='same')
         nn.init.kaiming_normal_(self.convE2.weight)
         self.bnE2 = nn.BatchNorm2d(out_channels)
         self.reluE2 = nn.ReLU() 
         self.dropE = nn.Dropout(0.3)
         
     def forward(self, x, x_cat): 
-        x = torch.cat((x, x_cat), axis=1) 
         x = self.upsamp(x)
+        x = self.upconv(x)
+        x = torch.cat((x, x_cat), axis=1) 
+        
         x = self.convE1(x) 
         x = self.bnE1(x) 
         x = self.reluE1(x)
@@ -112,8 +112,8 @@ class OutBlock(nn.Module):
         super(OutBlock, self).__init__()
         self.convOut1 = nn.Conv2d(in_channels = in_channels, 
                                   out_channels = in_channels//2, 
-                                  kernel_size = (2,3),
-                                  padding = (1,1))
+                                  kernel_size = 3,
+                                  padding = 'same')
         self.reluOut1 = nn.ReLU() 
         self.convOut2 = nn.Conv2d(in_channels = in_channels//2, 
                                   out_channels = 1,
@@ -127,7 +127,7 @@ class OutBlock(nn.Module):
         x = self.reluOut1(x)
         x = self.convOut2(x)
         out = self.reluOut2(x)
-        out = (out - torch.min(out)) / (torch.max(out) - torch.min(out))
+        # out = (out - torch.min(out)) / (torch.max(out) - torch.min(out))
         return out
 
 class PInvBlock(nn.Module):

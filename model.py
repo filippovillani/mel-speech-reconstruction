@@ -21,12 +21,13 @@ class UNet(nn.Module):
         self.contrblock4 = ContractingBlock(in_channels = hparams.unet_first_channels * 4,
                                             kernel_size = 3,
                                             last_block = True)
-        self.expandblock3 = ExpandingBlock(in_channels = hparams.unet_first_channels * 16,
+        self.expandblock3 = ExpandingBlock(in_channels = hparams.unet_first_channels * 8,
                                            kernel_size = 3)
-        self.expandblock2 = ExpandingBlock(in_channels = hparams.unet_first_channels * 8,
+        self.expandblock2 = ExpandingBlock(in_channels = hparams.unet_first_channels * 4,
                                            kernel_size = 3)
-        self.expandblock1 = ExpandingBlock(in_channels = hparams.unet_first_channels * 4,
-                                           kernel_size = 3)
+        self.expandblock1 = ExpandingBlock(in_channels = hparams.unet_first_channels * 2,
+                                           kernel_size = 3,
+                                           last_block = True)
         self.outblock = OutBlock(in_channels = hparams.unet_first_channels)
         
     def forward(self, melspec):
