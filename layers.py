@@ -147,8 +147,11 @@ class OutBlock(nn.Module):
         x = self.convOut1(x)
         x = self.reluOut1(x)
         x = self.convOut2(x)
-        out = self.reluOut2(x)
+        x = self.reluOut2(x)
 
+        # Try to normalize each batch independently
+        out = x / torch.max(x)
+        
         return out
 
 class PInvBlock(nn.Module):
