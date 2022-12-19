@@ -43,9 +43,7 @@ class UNet(nn.Module):
         
         return out
      
-
-        
-        
+ 
 if __name__=="__main__":
     
     hparams = config.create_hparams()

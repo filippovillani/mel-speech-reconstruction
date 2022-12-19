@@ -50,24 +50,3 @@ class MelSTFTDataset(Dataset):
         
     def __len__(self):
         return len(os.listdir(self.spectr_dir))
-
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    import librosa.display
-    _, val_dl, _ = build_dataloaders(config.DATA_DIR, config.create_hparams())
-    
-    for el in val_dl:
-        hparams = config.create_hparams()
-        print(el['wav'].shape)
-        print(el['spectr'].shape)
-        print(el['melspectr'].shape)
-        
-        plt.figure()
-        plt.subplot(3,1,1)
-        librosa.display.specshow(np.abs(el['spectr'][0].numpy()), sr=hparams.sr)
-        plt.subplot(3,1,2)
-        librosa.display.specshow(el['melspectr'][0].numpy(), sr=hparams.sr)
-        plt.subplot(3,1,3)
-        librosa.display.waveshow(el['wav'][0].numpy(), sr=hparams.sr)
-        plt.savefig('results/img.png')
-        break

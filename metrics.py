@@ -8,7 +8,7 @@ def mse(s_target: torch.Tensor,
     error = s_target - s_hat
     return torch.mean(torch.square(error))
 
-def si_ssnr_metric(s_target: torch.Tensor,
+def si_snr_metric(s_target: torch.Tensor,
                    s_hat: torch.Tensor)->torch.Tensor: 
     """
     Compute the Scale-Invariant Signal to Noise Ratio on the STFT magnitude,
@@ -19,7 +19,7 @@ def si_ssnr_metric(s_target: torch.Tensor,
         s_hat (torch.Tensor): spectrogram of reconstructed signal
 
     Returns:
-        snr (float): SI-SSNR
+        snr (float): SI-SNR
     """
     s_hat = (s_hat - torch.mean(s_hat)).to(config.DEVICE)
     s_target = (s_target - torch.mean(s_target)).to(config.DEVICE)

@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from model import UNet
-from metrics import si_ssnr_metric, mse
+from metrics import si_snr_metric, mse
 from dataset import build_dataloaders
 from audioutils import to_linear, denormalize_db_spectr
 import config
@@ -31,7 +31,7 @@ def eval_model(model: torch.nn.Module,
             loss = mse(stftspec_hat_db_norm, stftspec_db_norm)
             val_loss += ((1./(n+1))*(loss-val_loss))
                          
-            score = si_ssnr_metric(to_linear(denormalize_db_spectr(stftspec_hat_db_norm)), 
+            score = si_snr_metric(to_linear(denormalize_db_spectr(stftspec_hat_db_norm)), 
                                     to_linear(denormalize_db_spectr(stftspec_db_norm)))
             val_score += ((1./(n+1))*(score-val_score))
             
@@ -56,7 +56,7 @@ def main(args):
     _, _, test_dl = build_dataloaders(config.DATA_DIR, hparams)
     test_score, test_loss = eval_model(model, test_dl)
     test_metrics = {"mse": float(test_loss),
-                    "si-ssnr": float(test_score)}
+                    "si-snr": float(test_score)}
     test_metrics_path = config.MELSPEC2SPEC_DIR / args.weights_dir / 'test_metrics.json'
         
     with open(test_metrics_path, "w") as fp:

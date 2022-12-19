@@ -40,9 +40,14 @@ class ContractingBlock(nn.Module):
             x (torch.Tensor): [batch_size, in_channels, n_mels, n_frames]
 
         Returns:
-            out (torch.Tensor): 
-                if last_block: [batch_size, in_channels * 2, n_mels // 2, n_frames // 2]
-                else:          [batch_size, in_channels * 2, n_mels, n_frames]
+            out (torch.Tensor):
+                if in_channels == 1: in_channels = hparams.unet_first_channels
+                if last_block: [batch_size, in_channels * 2, n_mels, n_frames]
+                else: [batch_size, in_channels * 2, n_mels // 2, n_frames // 2]
+                
+            x_cat (torch.Tensor):
+                if last_block: x_cat = None
+                else: [batch_size, in_channels * 2, n_mels, n_frames]
         """
         x = self.convC1(x)
         x = self.bnC1(x)        
@@ -69,9 +74,9 @@ class ExpandingBlock(nn.Module):
         out_channels = in_channels // 2
         if last_block:
             self.upconv = nn.Conv2d(in_channels = in_channels, 
-                                  out_channels = in_channels//2, 
-                                  kernel_size = (4,3),
-                                  padding = (2,1))
+                                    out_channels = out_channels, 
+                                    kernel_size = (4,3),
+                                    padding = (2,1))
         else:
             self.upconv = nn.Conv2d(in_channels, out_channels, kernel_size, padding='same')
         self.upsamp = nn.Upsample(scale_factor=2, 
@@ -90,6 +95,16 @@ class ExpandingBlock(nn.Module):
         self.dropE = nn.Dropout(0.3)
         
     def forward(self, x, x_cat): 
+        """ 
+        Args:
+            x (torch.Tensor): [batch_size, in_channels, n_mels // 2, n_frames // 2]
+            x_cat (torch.Tensor): [batch_size, in_channels // 2, n_mels, n_frames]
+        Returns:
+            out (torch.Tensor):
+                if last_block:  [batch_size, in_channels + 1, n_mels, n_frames]
+                else: [batch_size, in_channels, n_mels, n_frames]       
+            
+        """
         x = self.upsamp(x)
         x = self.upconv(x)
         x = torch.cat((x, x_cat), axis=1) 
@@ -122,12 +137,18 @@ class OutBlock(nn.Module):
         self.reluOut2 = nn.ReLU() 
         
     def forward(self, x):
-        
+        """ 
+        Args:
+            x (torch.Tensor): [batch_size, in_channels, n_mels, n_frames]
+        Returns:
+            out (torch.Tensor): [batch_size, 1, n_mels, n_frames]       
+            
+        """
         x = self.convOut1(x)
         x = self.reluOut1(x)
         x = self.convOut2(x)
         out = self.reluOut2(x)
-        # out = (out - torch.min(out)) / (torch.max(out) - torch.min(out))
+
         return out
 
 class PInvBlock(nn.Module):
@@ -149,9 +170,3 @@ class PInvBlock(nn.Module):
         """
         stft_hat = torch.clamp(torch.matmul(torch.linalg.pinv(self.melfb), melspec), min=0, max=1)
         return stft_hat
-    
-    
-# model = PInvBlock(96, 1024, 16000)
-# melspec = torch.rand((4, 1, 96, 256)).to(config.DEVICE)
-# stft_hat = model(melspec)
-# print(stft_hat.shape)

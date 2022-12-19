@@ -52,7 +52,7 @@ def plot_metric_numiter(snr_hist: list,
     plt.figure() 
     plt.semilogx(snr_hist)
     plt.xlabel("n_iter")
-    plt.ylabel("SI-SSNR [dB]")
+    plt.ylabel("SI-SNR [dB]")
     plt.title(save_path)
     plt.grid()
     

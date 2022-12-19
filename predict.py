@@ -7,7 +7,7 @@ import json
 from model import UNet
 from audioutils import open_audio, to_db, normalize_db_spectr, denormalize_db_spectr, to_linear, normalize_db_spectr
 from griffinlim import fast_griffin_lim
-from metrics import mse, si_ssnr_metric
+from metrics import mse, si_snr_metric
 from plots import plot_prediction
 import config
 
@@ -52,7 +52,7 @@ def predict(args, hparams):
                     args.experiment_name)
     
     metrics = {"mse": float(mse(stftspec_db_norm, stftspec_hat_db_norm)),
-               "si-ssnr": float(si_ssnr_metric(stftspec_db_norm, stftspec_hat_db_norm))}
+               "si-snr": float(si_snr_metric(stftspec_db_norm, stftspec_hat_db_norm))}
     
     with open(metrics_path, "w") as fp:
         json.dump(metrics, fp)

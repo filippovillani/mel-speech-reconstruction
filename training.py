@@ -1,5 +1,4 @@
 import torch
-from torch.utils.data import DataLoader
 import os
 import json
 import argparse
@@ -9,7 +8,7 @@ from tqdm import tqdm
 from model import UNet
 from dataset import build_dataloaders
 from evaluate import eval_model
-from metrics import si_ssnr_metric, mse
+from metrics import si_snr_metric, mse
 from plots import plot_train_hist
 from audioutils import to_linear, denormalize_db_spectr
 import config
@@ -88,7 +87,7 @@ def train_model(args, hparams):
             loss.backward()  
             optimizer.step()
 
-            snr_metric = si_ssnr_metric(to_linear(denormalize_db_spectr(stftspec_hat_db_norm)), 
+            snr_metric = si_snr_metric(to_linear(denormalize_db_spectr(stftspec_hat_db_norm)), 
                                         to_linear(denormalize_db_spectr(stftspec_db_norm)))
             train_score += ((1./(n+1))*(snr_metric-train_score))
 
