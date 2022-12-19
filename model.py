@@ -16,17 +16,11 @@ class UNet(nn.Module):
                                             kernel_size = 3)
         self.contrblock2 = ContractingBlock(in_channels = hparams.unet_first_channels,
                                             kernel_size = 3)
+
         self.contrblock3 = ContractingBlock(in_channels = hparams.unet_first_channels * 2,
-                                            kernel_size = 3)
-        self.contrblock4 = ContractingBlock(in_channels = hparams.unet_first_channels * 4,
-                                            kernel_size = 3)
-        self.contrblock5 = ContractingBlock(in_channels = hparams.unet_first_channels * 8,
                                             kernel_size = 3,
                                             last_block = True)
-        self.expandblock4 = ExpandingBlock(in_channels = hparams.unet_first_channels * 16,
-                                           kernel_size = 3)
-        self.expandblock3 = ExpandingBlock(in_channels = hparams.unet_first_channels * 8,
-                                           kernel_size = 3)
+
         self.expandblock2 = ExpandingBlock(in_channels = hparams.unet_first_channels * 4,
                                            kernel_size = 3)
         self.expandblock1 = ExpandingBlock(in_channels = hparams.unet_first_channels * 2,
@@ -38,11 +32,7 @@ class UNet(nn.Module):
         stft_hat = self.pinvblock(melspec)
         x, x_cat1 = self.contrblock1(stft_hat)
         x, x_cat2 = self.contrblock2(x)
-        x, x_cat3 = self.contrblock3(x)
-        x, x_cat4 = self.contrblock4(x)
-        x, _ = self.contrblock5(x)
-        x = self.expandblock4(x, x_cat4)
-        x = self.expandblock3(x, x_cat3)
+        x, _ = self.contrblock3(x)
         x = self.expandblock2(x, x_cat2)
         x = self.expandblock1(x, x_cat1)
         out = self.outblock(x)
