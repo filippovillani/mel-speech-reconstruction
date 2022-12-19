@@ -17,7 +17,7 @@ def create_hparams():   # training hparams
                         audio_ms = 4080,
                         min_noise_ms = 1000,
                         # model hparams
-                        unet_first_channels = 64)
+                        unet_first_channels = 128)
     
     audio_len_ = int(hparams.sr * hparams.audio_ms // 1000)
     n_frames_ = int(audio_len_ // hparams.hop_len + 1)
