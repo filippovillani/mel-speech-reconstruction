@@ -59,7 +59,11 @@ def plot_metric_numiter(snr_hist: list,
     plt.savefig(out_img_path)
 
 def plot_train_hist(experiment_name: str):
-
+    """
+        Plots loss and metric histories for training and validation sets
+    Args:
+        experiment_name (str): train_state.json directory
+    """
     experiment_dir = config.MELSPEC2SPEC_DIR / experiment_name
     train_state_path = experiment_dir / 'train_state.json'
     loss_img_path = experiment_dir / 'loss_hist.png'
@@ -73,14 +77,17 @@ def plot_train_hist(experiment_name: str):
     plt.plot(range(1, 1+training_state["epochs"]), training_state["val_loss_hist"], label='val loss')
     plt.xlabel('Epochs')
     plt.ylabel('MSE')
+    plt.title(experiment_name)
     plt.legend()
     plt.grid()
     plt.savefig(loss_img_path)
 
     plt.figure()
+    plt.plot(range(1, 1+training_state["epochs"]), training_state["train_score_hist"], label='train metric')
     plt.plot(range(1, 1+training_state["epochs"]), training_state["val_score_hist"], label='val metric')
     plt.xlabel('Epochs')
-    plt.ylabel('SI-NSR [dB]')
+    plt.ylabel('SI-SNR [dB]')
+    plt.title(experiment_name)
     plt.legend()
     plt.grid()
     plt.savefig(metric_img_path)
