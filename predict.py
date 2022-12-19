@@ -64,7 +64,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='unet4_64')
+                        default='unet4_32')
     parser.add_argument('--audio_path',
                         type=str,
                         default='in.wav')

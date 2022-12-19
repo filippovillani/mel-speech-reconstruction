@@ -119,3 +119,5 @@ def plot_prediction(mel: np.ndarray,
     plt.title('STFT-spectrogram predicted')
     plt.colorbar(format="%+2.f dB")
     plt.savefig(out_path)
+    
+    plot_train_hist('unet4_32')
