@@ -116,6 +116,6 @@ def plot_prediction(mel: np.ndarray,
                              hop_length=hparams.hop_len, 
                              x_axis='time', 
                              y_axis='hz')
-    plt.title('STFT-spectrogram predicted by PInvBlock')
+    plt.title('STFT-spectrogram predicted')
     plt.colorbar(format="%+2.f dB")
     plt.savefig(out_path)
