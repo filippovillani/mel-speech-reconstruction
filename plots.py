@@ -64,6 +64,11 @@ def plot_train_hist(experiment_name: str):
     Args:
         experiment_name (str): train_state.json directory
     """
+    """
+        Plots loss and metric histories for training and validation sets
+    Args:
+        experiment_name (str): train_state.json directory
+    """
     experiment_dir = config.MELSPEC2SPEC_DIR / experiment_name
     train_state_path = experiment_dir / 'train_state.json'
     loss_img_path = experiment_dir / 'loss_hist.png'
@@ -78,14 +83,18 @@ def plot_train_hist(experiment_name: str):
     plt.xlabel('Epochs')
     plt.ylabel('MSE')
     plt.title(experiment_name)
+    plt.title(experiment_name)
     plt.legend()
     plt.grid()
     plt.savefig(loss_img_path)
 
     plt.figure()
     plt.plot(range(1, 1+training_state["epochs"]), training_state["train_score_hist"], label='train metric')
+    plt.plot(range(1, 1+training_state["epochs"]), training_state["train_score_hist"], label='train metric')
     plt.plot(range(1, 1+training_state["epochs"]), training_state["val_score_hist"], label='val metric')
     plt.xlabel('Epochs')
+    plt.ylabel('SI-SNR [dB]')
+    plt.title(experiment_name)
     plt.ylabel('SI-SNR [dB]')
     plt.title(experiment_name)
     plt.legend()
@@ -116,6 +125,7 @@ def plot_prediction(mel: np.ndarray,
                              hop_length=hparams.hop_len, 
                              x_axis='time', 
                              y_axis='hz')
+    plt.title('STFT-spectrogram predicted')
     plt.title('STFT-spectrogram predicted')
     plt.colorbar(format="%+2.f dB")
     plt.savefig(out_path)

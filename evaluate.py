@@ -67,9 +67,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights_dir',
                         type=str,
-                        default='09_unet03')
+                        default='unet4_32')
     parser.add_argument('--best_weights',
                         type=bool,
-                        default=False)
+                        default=True)
     args = parser.parse_args()
     main(args)
