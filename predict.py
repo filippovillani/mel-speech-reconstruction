@@ -4,7 +4,7 @@ import soundfile as sf
 import argparse
 import json
 
-from model import UNet
+from model import UNet, ConvPInv
 from audioutils import open_audio, to_db, normalize_db_spectr, denormalize_db_spectr, to_linear, normalize_db_spectr
 from griffinlim import fast_griffin_lim
 from metrics import mse, si_snr_metric
@@ -34,12 +34,13 @@ def predict(hparams, args):
     
     if args.type == 'unet':
         # Instatiate the model
-        model = UNet(hparams).float().to(config.DEVICE)
+        model = ConvPInv(hparams).float().to(config.DEVICE)
         model.eval()
         model.load_state_dict(torch.load(weights_path))
         
         # Compute melspectrogram of example
-        melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm.to(config.DEVICE))
+        # melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm.to(config.DEVICE))
+        melspec_db_norm = torch.matmul(model.melfb, stftspec_db_norm.to(config.DEVICE))
         stftspec_hat_db_norm = model(melspec_db_norm.unsqueeze(0).unsqueeze(0)).cpu()
     
     if args.type == 'librosa':
@@ -77,7 +78,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='unet3_32')
+                        default='convpinv')
     parser.add_argument('--audio_path',
                         type=str,
                         default='in.wav')

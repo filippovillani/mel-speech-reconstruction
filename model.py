@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torchsummary import summary
+import librosa 
 
 from layers import ContractingBlock, ExpandingBlock, PInvBlock, OutBlock
 import config
@@ -16,6 +17,45 @@ def build_model(weights_dir,
     model.load_state_dict(torch.load(weights_path))
     
     return model 
+
+class ConvPInv(nn.Module):
+    def __init__(self, hparams):
+
+        super(ConvPInv, self).__init__()
+        self.melfb = torch.as_tensor(librosa.filters.mel(sr = hparams.sr, 
+                                                         n_fft = hparams.n_fft, 
+                                                         n_mels = hparams.n_mels)).to(config.DEVICE)
+        self.conv1 = nn.Conv2d(in_channels = hparams.n_channels,
+                               out_channels = hparams.unet_first_channels,
+                               kernel_size = (5, 1),
+                               padding = 'same')
+        self.bn1 = nn.BatchNorm2d(hparams.unet_first_channels)
+        self.relu1 = nn.ReLU()
+        self.conv2 = nn.Conv2d(in_channels = hparams.unet_first_channels,
+                               out_channels = hparams.n_channels,
+                               kernel_size = (5, 1),
+                               padding = 'same')
+        self.bn2 = nn.BatchNorm2d(hparams.n_channels)
+        self.relu2 = nn.ReLU()
+        
+    
+    def forward(self, melspec):
+        """
+        Args:
+            melspec (torch.Tensor): mel spectrogram in dB normalized in [0, 1]
+
+        Returns:
+            _type_: _description_
+        """
+        x = torch.clamp(torch.matmul(torch.linalg.pinv(self.melfb), melspec), min=0, max=1)
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu1(x)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu2(x)
+        stft_hat = x / torch.max(x)
+        return stft_hat
 
 class UNet(nn.Module):
     def __init__(self, hparams):
@@ -57,7 +97,7 @@ if __name__=="__main__":
     hparams = config.create_hparams()
     batch = torch.rand((hparams.batch_size, hparams.n_channels, hparams.n_mels, hparams.n_frames)).to(config.DEVICE)
     
-    model = UNet(hparams).to(config.DEVICE)
+    model = ConvPInv(hparams).to(config.DEVICE)
     
     print(batch.shape)
     print(model(batch).shape)

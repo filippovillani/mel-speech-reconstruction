@@ -5,7 +5,7 @@ import argparse
 from time import time
 from tqdm import tqdm
 
-from model import UNet
+from model import UNet, ConvPInv
 from dataset import build_dataloaders
 from evaluate import eval_model
 from metrics import si_snr_metric, mse
@@ -20,7 +20,8 @@ def train_model(args, hparams):
     if not os.path.exists(experiment_dir):
         os.mkdir(experiment_dir)
         
-    model = UNet(hparams).float().to(config.DEVICE)
+    # model = UNet(hparams).float().to(config.DEVICE)
+    model = ConvPInv(hparams).float().to(config.DEVICE)
     optimizer = torch.optim.Adam(params=model.parameters(),
                                  lr=hparams.lr)
 
@@ -77,7 +78,8 @@ def train_model(args, hparams):
         for n, batch in enumerate(tqdm(train_dl, desc=f'Epoch {training_state["epochs"]}')):   
             optimizer.zero_grad()  
             stftspec_db_norm = batch["spectr"].float().to(config.DEVICE)
-            melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm)
+            # melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm)
+            melspec_db_norm = torch.matmul(model.melfb, stftspec_db_norm)
             melspec_db_norm = melspec_db_norm.unsqueeze(1)
             
             stftspec_hat_db_norm = model(melspec_db_norm)
@@ -91,6 +93,8 @@ def train_model(args, hparams):
                                         to_linear(denormalize_db_spectr(stftspec_db_norm)))
             train_score += ((1./(n+1))*(snr_metric-train_score))
 
+            if n == 100:
+                break
         training_state["train_loss_hist"].append(train_loss.item())
         training_state["train_score_hist"].append(train_score.item())
         print(f'Training loss:     {training_state["train_loss_hist"][-1]:.4f}')
@@ -142,7 +146,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='09_unet03')
+                        default='convpinv')
     parser.add_argument('--weights_dir',
                         type=str,
                         help="directory containing the the model's checkpoint weights",
