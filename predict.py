@@ -13,7 +13,7 @@ import config
 
 
 
-def predict(args, hparams):
+def predict(hparams, args):
     
     weights_path = 'best_weights' if args.best_weights else 'ckpt_weights'
     weights_path = config.WEIGHTS_DIR / args.experiment_name / weights_path
@@ -30,17 +30,29 @@ def predict(args, hparams):
                                    n_fft=hparams.n_fft,
                                    hop_length=hparams.hop_len)))
 
-    stftspec_db_norm = normalize_db_spectr(to_db(stftspec)).float().to(config.DEVICE)
-    # Instatiate the model
-    model = UNet(hparams).float().to(config.DEVICE)
-    model.eval()
-    model.load_state_dict(torch.load(weights_path))
+    stftspec_db_norm = normalize_db_spectr(to_db(stftspec)).float()
     
-    # Compute melspectrogram of example
-    melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm)
-    stftspec_hat_db_norm = model(melspec_db_norm.unsqueeze(0).unsqueeze(0))
+    if args.type == 'unet':
+        # Instatiate the model
+        model = UNet(hparams).float().to(config.DEVICE)
+        model.eval()
+        model.load_state_dict(torch.load(weights_path))
+        
+        # Compute melspectrogram of example
+        melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm.to(config.DEVICE))
+        stftspec_hat_db_norm = model(melspec_db_norm.unsqueeze(0).unsqueeze(0))
     
-    # just save audio
+    if args.type == 'librosa':
+        melfb = librosa.filters.mel(sr = hparams.sr, 
+                                n_fft = hparams.n_fft, 
+                                n_mels = hparams.n_mels)  
+        melspec_db_norm = torch.matmul(torch.as_tensor(melfb), stftspec_db_norm)
+        stftspec_hat_db_norm = librosa.feature.inverse.mel_to_stft(melspec_db_norm.numpy(), 
+                                                                   sr = hparams.sr,
+                                                                   n_fft = hparams.n_fft)
+        stftspec_hat_db_norm = torch.as_tensor(stftspec_hat_db_norm)
+    
+    # save audio
     stftspec_hat = to_linear(denormalize_db_spectr(stftspec_hat_db_norm))  
     out_hat, _ = fast_griffin_lim(torch.abs(stftspec_hat).cpu().detach().numpy().squeeze())
     sf.write(str(out_hat_path), out_hat, samplerate = hparams.sr)   
@@ -56,21 +68,27 @@ def predict(args, hparams):
     
     with open(metrics_path, "w") as fp:
         json.dump(metrics, fp)
-    
-        
-if __name__ == "__main__":
-    hparams = config.create_hparams()
 
+    
+if __name__ == "__main__":
+    
+    hparams = config.create_hparams()
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='unet4_32')
+                        default='librosa')
     parser.add_argument('--audio_path',
                         type=str,
                         default='in.wav')
     parser.add_argument('--best_weights',
                         type=bool,
                         default=True)
+    parser.add_argument('--type',
+                        choices = ["unet", "librosa"],
+                        help = 'unet: evaluates unet; librosa: evaluates librosa.feature.inverse.mel_to_stft()',
+                        type=str,
+                        default = 'librosa')
     
     args = parser.parse_args()
-    predict(args, hparams)
+    predict(hparams, args)

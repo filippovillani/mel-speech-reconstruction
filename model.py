@@ -5,6 +5,18 @@ from torchsummary import summary
 from layers import ContractingBlock, ExpandingBlock, PInvBlock, OutBlock
 import config
 
+def build_model(weights_dir,
+                hparams,
+                best_weights: bool = True):
+     
+    weights_path = 'best_weights' if best_weights else 'ckpt_weights'
+    weights_path = config.WEIGHTS_DIR / weights_dir / weights_path
+    
+    model = UNet(hparams).float().to(config.DEVICE)
+    model.load_state_dict(torch.load(weights_path))
+    
+    return model 
+
 class UNet(nn.Module):
     def __init__(self, hparams):
         
