@@ -8,7 +8,7 @@ def create_hparams():   # training hparams
                         epochs = 70,
                         patience = 20,
                         # audio hparams
-                        lr = 1e-2,
+                        lr = 1e-3,
                         sr = 16000,
                         n_mels = 96,
                         n_fft = 1024,

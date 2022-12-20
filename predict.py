@@ -40,7 +40,7 @@ def predict(hparams, args):
         
         # Compute melspectrogram of example
         melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm.to(config.DEVICE))
-        stftspec_hat_db_norm = model(melspec_db_norm.unsqueeze(0).unsqueeze(0))
+        stftspec_hat_db_norm = model(melspec_db_norm.unsqueeze(0).unsqueeze(0)).cpu()
     
     if args.type == 'librosa':
         melfb = librosa.filters.mel(sr = hparams.sr, 
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='librosa')
+                        default='unet3_32')
     parser.add_argument('--audio_path',
                         type=str,
                         default='in.wav')
@@ -88,7 +88,7 @@ if __name__ == "__main__":
                         choices = ["unet", "librosa"],
                         help = 'unet: evaluates unet; librosa: evaluates librosa.feature.inverse.mel_to_stft()',
                         type=str,
-                        default = 'librosa')
+                        default = 'unet')
     
     args = parser.parse_args()
     predict(hparams, args)
