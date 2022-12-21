@@ -49,7 +49,10 @@ def predict(hparams, args):
     stftspec_hat = to_linear(denormalize_db_spectr(stftspec_hat_db_norm))  
     out_hat, _ = fast_griffin_lim(torch.abs(stftspec_hat).cpu().detach().numpy().squeeze())
     sf.write(str(out_hat_path), out_hat, samplerate = hparams.sr)   
-
+    # Compute out_hat 's spectrogram and compare it to the original spectrogram
+    stftspec_gla_db_norm =  normalize_db_spectr(to_db(torch.abs(torch.as_tensor(librosa.stft(y=out_hat, 
+                                                                                             n_fft=hparams.n_fft,
+                                                                                             hop_length=hparams.hop_len)))))
       
     plot_prediction(denormalize_db_spectr(stftspec_db_norm).cpu().numpy().squeeze(), 
                     denormalize_db_spectr(stftspec_hat_db_norm).cpu().detach().numpy().squeeze(), 
@@ -57,7 +60,8 @@ def predict(hparams, args):
                     args.weights_dir)
     
     metrics = {"mse": float(mse(stftspec_db_norm, stftspec_hat_db_norm)),
-               "si-snr": float(si_snr_metric(stftspec_db_norm, stftspec_hat_db_norm))}
+               "si-snr": float(si_snr_metric(stftspec_db_norm, stftspec_hat_db_norm)),
+               "si-snr (after gla)": float(si_snr_metric(stftspec_db_norm, stftspec_gla_db_norm))}
     
     with open(metrics_path, "w") as fp:
         json.dump(metrics, fp)
