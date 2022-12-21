@@ -67,20 +67,20 @@ class UNet(nn.Module):
         super(UNet, self).__init__()
         
         self.pinvblock = PInvBlock(hparams)
-        self.contrblock1 = ContractingBlock(in_channels = 1,
+        self.contrblock1 = ContractingBlock(in_channels = hparams.n_channels,
                                             out_channels = hparams.first_channel_units,
-                                            kernel_size = 3)
+                                            kernel_size = hparams.kernel_size)
         self.contrblock2 = ContractingBlock(in_channels = hparams.first_channel_units,
-                                            kernel_size = 3)
+                                            kernel_size = hparams.kernel_size)
 
         self.contrblock3 = ContractingBlock(in_channels = hparams.first_channel_units * 2,
-                                            kernel_size = 3,
+                                            kernel_size = hparams.kernel_size,
                                             last_block = True)
 
         self.expandblock2 = ExpandingBlock(in_channels = hparams.first_channel_units * 4,
-                                           kernel_size = 3)
+                                           kernel_size = hparams.kernel_size)
         self.expandblock1 = ExpandingBlock(in_channels = hparams.first_channel_units * 2,
-                                           kernel_size = 3,
+                                           kernel_size = hparams.kernel_size,
                                            last_block = True)
         self.outblock = OutBlock(in_channels = hparams.first_channel_units)
         
@@ -97,7 +97,7 @@ class UNet(nn.Module):
      
  
 # Debug model:
-if __name__=="__main__":
+if __name__ == "__main__":
     
     hparams = config.create_hparams()
     batch = torch.rand((hparams.batch_size, hparams.n_channels, hparams.n_mels, hparams.n_frames)).to(config.DEVICE)
