@@ -68,18 +68,18 @@ if __name__ == "__main__":
     hparams = config.create_hparams()
     
     parser = argparse.ArgumentParser()
+    parser.add_argument('--model_name', 
+                    choices = ["unet", "librosa", "convpinv"],
+                    help = 'unet: evaluates unet; librosa: evaluates librosa.feature.inverse.mel_to_stft()',
+                    type=str,
+                    default = 'convpinv')
     parser.add_argument('--weights_dir',
                         type=str,
-                        default='convpinv50')
+                        default='convpinvL2K31EX200')
     parser.add_argument('--best_weights',
                         type=bool,
                         help='if False loads the weights from the checkpoint',
                         default=True)
-    parser.add_argument('--model_name',
-                        choices = ["unet", "librosa", "convpinv"],
-                        help = 'unet: evaluates unet; librosa: evaluates librosa.feature.inverse.mel_to_stft()',
-                        type=str,
-                        default = 'convpinv')
     parser.add_argument('--audio_path',
                         type=str,
                         default='in.wav')
