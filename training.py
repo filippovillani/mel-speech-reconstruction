@@ -79,7 +79,7 @@ def train_model(args, hparams):
             optimizer.zero_grad()  
             stftspec_db_norm = batch["spectr"].float().to(config.DEVICE)
             # melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm)
-            melspec_db_norm = torch.matmul(model.melfb, stftspec_db_norm)
+            melspec_db_norm = torch.matmul(model.melfb.float(), stftspec_db_norm)
             melspec_db_norm = melspec_db_norm.unsqueeze(1)
             
             stftspec_hat_db_norm = model(melspec_db_norm)
@@ -93,7 +93,7 @@ def train_model(args, hparams):
                                         to_linear(denormalize_db_spectr(stftspec_db_norm)))
             train_score += ((1./(n+1))*(snr_metric-train_score))
 
-            if n == 100:
+            if n == 200:
                 break
         training_state["train_loss_hist"].append(train_loss.item())
         training_state["train_score_hist"].append(train_score.item())
@@ -146,7 +146,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='convpinv')
+                        default='convpinv200')
     parser.add_argument('--weights_dir',
                         type=str,
                         help="directory containing the the model's checkpoint weights",

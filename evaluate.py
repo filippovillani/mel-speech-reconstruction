@@ -54,7 +54,7 @@ def eval_model(model: torch.nn.Module,
         for n, batch in enumerate(tqdm(dataloader)):
             stftspec_db_norm = batch["spectr"].float().to(config.DEVICE)
             # melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm)
-            melspec_db_norm = torch.matmul(model.melfb, stftspec_db_norm)
+            melspec_db_norm = torch.matmul(model.melfb.float(), stftspec_db_norm)
             melspec_db_norm = melspec_db_norm.unsqueeze(1)
             
             stftspec_hat_db_norm = model(melspec_db_norm)
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights_dir',
                         type=str,
-                        default='convpinv')
+                        default='convpinv200')
     parser.add_argument('--best_weights',
                         type=bool,
                         default=True)

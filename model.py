@@ -47,7 +47,7 @@ class ConvPInv(nn.Module):
         Returns:
             _type_: _description_
         """
-        x = torch.clamp(torch.matmul(torch.linalg.pinv(self.melfb), melspec), min=0, max=1)
+        x = torch.clamp(torch.matmul(torch.linalg.pinv(self.melfb).float(), melspec), min=0, max=1)
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu1(x)
