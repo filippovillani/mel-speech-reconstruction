@@ -90,16 +90,16 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('--model_name',
+                        choices = ["unet", "librosa", "convpinv", "pinv"],
+                        help = 'unet: evaluates unet; librosa: evaluates librosa.feature.inverse.mel_to_stft()',
+                        type=str,
+                        default = 'unet')
     parser.add_argument('--weights_dir',
                         type=str,
-                        default='convpinvL2K31EX200')
+                        default='unet4_32')
     parser.add_argument('--best_weights',
                         type=bool,
                         default=True)
-    parser.add_argument('--model_name',
-                        choices = ["unet", "librosa", "convpinv"],
-                        help = 'unet: evaluates unet; librosa: evaluates librosa.feature.inverse.mel_to_stft()',
-                        type=str,
-                        default = 'convpinv')
     args = parser.parse_args()
     main(args)

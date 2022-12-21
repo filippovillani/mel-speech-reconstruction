@@ -15,14 +15,28 @@ def build_model(hparams,
         model = UNet(hparams).float().to(config.DEVICE)
     elif model_name == "convpinv":
         model = ConvPInv(hparams).float().to(config.DEVICE)
-    
-    if weights_dir is not None:
+    elif model_name == "pinv":
+        model = PInv(hparams).float().to(config.DEVICE)
+    if weights_dir is not None and model_name != "pinv":
         weights_path = 'best_weights' if best_weights else 'ckpt_weights'
         weights_path = config.WEIGHTS_DIR / weights_dir / weights_path
         model.load_state_dict(torch.load(weights_path))
     
     return model 
 
+class PInv(nn.Module):
+    def __init__(self, hparams):
+
+        super(PInv, self).__init__()
+        self.pinvblock = PInvBlock(hparams)
+    
+    def forward(self, melspec):
+        
+        x = self.pinvblock(melspec)
+        stft_hat = x / torch.max(x)
+        return stft_hat
+    
+    
 class ConvPInv(nn.Module):
     def __init__(self, hparams):
 
@@ -76,7 +90,12 @@ class UNet(nn.Module):
         self.contrblock3 = ContractingBlock(in_channels = hparams.first_channel_units * 2,
                                             kernel_size = hparams.kernel_size,
                                             last_block = True)
+        self.contrblock4 = ContractingBlock(in_channels = hparams.first_channel_units * 4,
+                                            kernel_size = hparams.kernel_size,
+                                            last_block = True)
 
+        self.expandblock3 = ExpandingBlock(in_channels = hparams.first_channel_units * 8,
+                                           kernel_size = hparams.kernel_size)
         self.expandblock2 = ExpandingBlock(in_channels = hparams.first_channel_units * 4,
                                            kernel_size = hparams.kernel_size)
         self.expandblock1 = ExpandingBlock(in_channels = hparams.first_channel_units * 2,
