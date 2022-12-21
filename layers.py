@@ -41,7 +41,7 @@ class ContractingBlock(nn.Module):
 
         Returns:
             out (torch.Tensor):
-                if in_channels == 1: in_channels = hparams.unet_first_channels
+                if in_channels == 1: in_channels = hparams.first_channel_units
                 if last_block: [batch_size, in_channels * 2, n_mels, n_frames]
                 else: [batch_size, in_channels * 2, n_mels // 2, n_frames // 2]
                 

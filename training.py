@@ -5,7 +5,7 @@ import argparse
 from time import time
 from tqdm import tqdm
 
-from model import UNet, ConvPInv
+from model import build_model
 from dataset import build_dataloaders
 from evaluate import eval_model
 from metrics import si_snr_metric, mse
@@ -20,8 +20,8 @@ def train_model(args, hparams):
     if not os.path.exists(experiment_dir):
         os.mkdir(experiment_dir)
         
-    # model = UNet(hparams).float().to(config.DEVICE)
-    model = ConvPInv(hparams).float().to(config.DEVICE)
+    model = build_model(hparams, args.model_name)
+    
     optimizer = torch.optim.Adam(params=model.parameters(),
                                  lr=hparams.lr)
 
@@ -34,6 +34,7 @@ def train_model(args, hparams):
         ckpt_weights_toload_path = config.WEIGHTS_DIR / args.weights_dir / 'ckpt_weights'
         ckpt_opt_toload_path = config.WEIGHTS_DIR / args.weights_dir / 'ckpt_opt'
         
+        # Load model's weights and optimizer from checkpoint
         model.load_state_dict(torch.load(ckpt_weights_toload_path))
         optimizer.load_state_dict(torch.load(ckpt_opt_toload_path))        
         
@@ -78,9 +79,7 @@ def train_model(args, hparams):
         for n, batch in enumerate(tqdm(train_dl, desc=f'Epoch {training_state["epochs"]}')):   
             optimizer.zero_grad()  
             stftspec_db_norm = batch["spectr"].float().to(config.DEVICE)
-            # melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm)
-            melspec_db_norm = torch.matmul(model.melfb.float(), stftspec_db_norm)
-            melspec_db_norm = melspec_db_norm.unsqueeze(1)
+            melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm).unsqueeze(1)
             
             stftspec_hat_db_norm = model(melspec_db_norm)
             
@@ -151,6 +150,10 @@ if __name__ == "__main__":
                         type=str,
                         help="directory containing the the model's checkpoint weights",
                         default=None)
+    parser.add_argument('--model_name',
+                        type=str,
+                        choices=["unet", "convpinv"],
+                        default='convpinv')
     
     args = parser.parse_args()
     main(args)

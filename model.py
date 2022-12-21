@@ -6,15 +6,20 @@ import librosa
 from layers import ContractingBlock, ExpandingBlock, PInvBlock, OutBlock
 import config
 
-def build_model(weights_dir,
-                hparams,
+def build_model(hparams,
+                model_name,
+                weights_dir = None,
                 best_weights: bool = True):
-     
-    weights_path = 'best_weights' if best_weights else 'ckpt_weights'
-    weights_path = config.WEIGHTS_DIR / weights_dir / weights_path
     
-    model = UNet(hparams).float().to(config.DEVICE)
-    model.load_state_dict(torch.load(weights_path))
+    if model_name == "unet":
+        model = UNet(hparams).float().to(config.DEVICE)
+    elif model_name == "convpinv":
+        model = ConvPInv(hparams).float().to(config.DEVICE)
+    
+    if weights_dir is not None:
+        weights_path = 'best_weights' if best_weights else 'ckpt_weights'
+        weights_path = config.WEIGHTS_DIR / weights_dir / weights_path
+        model.load_state_dict(torch.load(weights_path))
     
     return model 
 
@@ -22,18 +27,17 @@ class ConvPInv(nn.Module):
     def __init__(self, hparams):
 
         super(ConvPInv, self).__init__()
-        self.melfb = torch.as_tensor(librosa.filters.mel(sr = hparams.sr, 
-                                                         n_fft = hparams.n_fft, 
-                                                         n_mels = hparams.n_mels)).to(config.DEVICE)
+        
+        self.pinvblock = PInvBlock(hparams)
         self.conv1 = nn.Conv2d(in_channels = hparams.n_channels,
-                               out_channels = hparams.unet_first_channels,
-                               kernel_size = (5, 1),
+                               out_channels = hparams.first_channel_units,
+                               kernel_size = hparams.kernel_size,
                                padding = 'same')
-        self.bn1 = nn.BatchNorm2d(hparams.unet_first_channels)
+        self.bn1 = nn.BatchNorm2d(hparams.first_channel_units)
         self.relu1 = nn.ReLU()
-        self.conv2 = nn.Conv2d(in_channels = hparams.unet_first_channels,
+        self.conv2 = nn.Conv2d(in_channels = hparams.first_channel_units,
                                out_channels = hparams.n_channels,
-                               kernel_size = (5, 1),
+                               kernel_size = hparams.kernel_size,
                                padding = 'same')
         self.bn2 = nn.BatchNorm2d(hparams.n_channels)
         self.relu2 = nn.ReLU()
@@ -47,7 +51,7 @@ class ConvPInv(nn.Module):
         Returns:
             _type_: _description_
         """
-        x = torch.clamp(torch.matmul(torch.linalg.pinv(self.melfb).float(), melspec), min=0, max=1)
+        x = self.pinvblock(melspec)
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu1(x)
@@ -64,21 +68,21 @@ class UNet(nn.Module):
         
         self.pinvblock = PInvBlock(hparams)
         self.contrblock1 = ContractingBlock(in_channels = 1,
-                                            out_channels = hparams.unet_first_channels,
+                                            out_channels = hparams.first_channel_units,
                                             kernel_size = 3)
-        self.contrblock2 = ContractingBlock(in_channels = hparams.unet_first_channels,
+        self.contrblock2 = ContractingBlock(in_channels = hparams.first_channel_units,
                                             kernel_size = 3)
 
-        self.contrblock3 = ContractingBlock(in_channels = hparams.unet_first_channels * 2,
+        self.contrblock3 = ContractingBlock(in_channels = hparams.first_channel_units * 2,
                                             kernel_size = 3,
                                             last_block = True)
 
-        self.expandblock2 = ExpandingBlock(in_channels = hparams.unet_first_channels * 4,
+        self.expandblock2 = ExpandingBlock(in_channels = hparams.first_channel_units * 4,
                                            kernel_size = 3)
-        self.expandblock1 = ExpandingBlock(in_channels = hparams.unet_first_channels * 2,
+        self.expandblock1 = ExpandingBlock(in_channels = hparams.first_channel_units * 2,
                                            kernel_size = 3,
                                            last_block = True)
-        self.outblock = OutBlock(in_channels = hparams.unet_first_channels)
+        self.outblock = OutBlock(in_channels = hparams.first_channel_units)
         
     def forward(self, melspec):
         stft_hat = self.pinvblock(melspec)
@@ -92,6 +96,7 @@ class UNet(nn.Module):
         return out
      
  
+# Debug model:
 if __name__=="__main__":
     
     hparams = config.create_hparams()
