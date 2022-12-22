@@ -11,7 +11,10 @@
     "audio_ms": 4080,
     "min_noise_ms": 1000,
     "first_channel_units": 32,
-    "kernel_size": 3,
+    "kernel_size": [
+        3,
+        1
+    ],
     "audio_len": 65280,
     "n_frames": 256,
     "n_stft": 513

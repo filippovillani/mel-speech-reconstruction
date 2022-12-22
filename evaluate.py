@@ -94,12 +94,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name',
                         choices = ["unet", "librosa", "convpinv", "pinv"],
-                        help = 'unet: evaluates unet; librosa: evaluates librosa.feature.inverse.mel_to_stft()',
+                        help = "models: unet, librosa (evaluates librosa.feature.inverse.mel_to_stft())," 
+                        "convpinv (simple CNN + pseudoinverse melfb), pinv (pseudoinverse melfb baseline)",
                         type=str,
-                        default = 'unet')
+                        default = 'convpinv')
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='unet4_32')
+                        default='convpinvL2K31EX200')
     parser.add_argument('--best_weights',
                         type=bool,
                         default=True)

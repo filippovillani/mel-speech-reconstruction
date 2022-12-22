@@ -19,7 +19,7 @@ def create_hparams():   # training hparams
                         min_noise_ms = 1000,
                         # model hparams
                         first_channel_units = 32,
-                        kernel_size = 3)
+                        kernel_size = (3, 1))
     
     audio_len_ = int(hparams.sr * hparams.audio_ms // 1000)
     n_frames_ = int(audio_len_ // hparams.hop_len + 1)
@@ -42,7 +42,7 @@ def load_config(config_path):
     
     with open(config_path, "r") as fp:
         hparams = json.load(fp)
-        
+    hparams = Namespace(**hparams)
     return hparams
 
 SEED = 42
