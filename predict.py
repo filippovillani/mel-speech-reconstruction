@@ -75,10 +75,10 @@ if __name__ == "__main__":
     parser.add_argument('--model_name', 
                         choices = ["unet", "librosa", "convpinv", "pinv"],
                         type=str,
-                        default = 'unet')
+                        default = 'convpinv')
     parser.add_argument('--weights_dir',
                         type=str,
-                        default='unet4_32')
+                        default='convpinv64L2K31EX200')
     parser.add_argument('--best_weights',
                         type=bool,
                         help='if False loads the weights from the checkpoint',

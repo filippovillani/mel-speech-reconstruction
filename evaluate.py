@@ -100,7 +100,7 @@ if __name__ == "__main__":
                         default = 'convpinv')
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='convpinvL2K31EX200')
+                        default='convpinv64L2K31EX200')
     parser.add_argument('--best_weights',
                         type=bool,
                         default=True)

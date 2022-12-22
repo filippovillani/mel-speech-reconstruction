@@ -152,7 +152,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='convpinvL2K31EX200')
+                        default='convpinv64L2K31EX200')
     parser.add_argument('--experiment_weights_dir',
                         type=str,
                         help="directory containing the the model's checkpoint weights",
