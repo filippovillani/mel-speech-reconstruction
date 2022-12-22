@@ -14,42 +14,46 @@ from audioutils import to_linear, denormalize_db_spectr
 import config
 
 
-def train_model(args, hparams):
+def train_model(args):
     
     experiment_dir = config.MELSPEC2SPEC_DIR / args.experiment_name
     if not os.path.exists(experiment_dir):
         os.mkdir(experiment_dir)
+    experiment_weights_dir = config.WEIGHTS_DIR / args.experiment_name
+    if not os.path.exists(experiment_weights_dir):
+        os.mkdir(experiment_weights_dir)
         
-    model = build_model(hparams, args.model_name)
+    # json
+    training_state_path = experiment_dir / "train_state.json"    
+    config_path = experiment_dir / "config.json"
+    # torch
+    best_weights_path = experiment_weights_dir / 'best_weights'
+    ckpt_weights_path = experiment_weights_dir / 'ckpt_weights'
+    ckpt_opt_path = experiment_weights_dir / 'ckpt_opt'
     
-    optimizer = torch.optim.Adam(params=model.parameters(),
-                                 lr=hparams.lr)
-
-    if args.weights_dir is not None:
-        best_weights_path = config.WEIGHTS_DIR / args.experiment_name / 'best_weights'
-        ckpt_weights_path = config.WEIGHTS_DIR / args.experiment_name / 'ckpt_weights'
-        ckpt_opt_path = config.WEIGHTS_DIR / args.experiment_name / 'ckpt_opt'
+    if args.experiment_weights_dir is not None:
+        hparams = config.load_config(config_path)
         
-        training_state_path = config.MELSPEC2SPEC_DIR / args.weights_dir / "train_state.json"
-        ckpt_weights_toload_path = config.WEIGHTS_DIR / args.weights_dir / 'ckpt_weights'
-        ckpt_opt_toload_path = config.WEIGHTS_DIR / args.weights_dir / 'ckpt_opt'
+        ckpt_weights_toload_path = config.WEIGHTS_DIR / args.experiment_weights_dir / 'ckpt_weights'
+        ckpt_opt_toload_path = config.WEIGHTS_DIR / args.experiment_weights_dir / 'ckpt_opt'
+        
+        # Load training state
+        with open(training_state_path, "r") as fp:
+            training_state = json.load(fp)
         
         # Load model's weights and optimizer from checkpoint
-        model.load_state_dict(torch.load(ckpt_weights_toload_path))
+        model = build_model(hparams, args.model_name, ckpt_weights_toload_path)
+        optimizer = torch.optim.Adam(params=model.parameters(), lr=hparams.lr)        
         optimizer.load_state_dict(torch.load(ckpt_opt_toload_path))        
         
-        with open(training_state_path, "r") as fr:
-            training_state = json.load(fr)
          
     else:
-        training_state_path = experiment_dir / "train_state.json"
-        weights_dir = config.WEIGHTS_DIR / args.experiment_name
-        best_weights_path = weights_dir / 'best_weights'
-        ckpt_weights_path = weights_dir / 'ckpt_weights'
-        ckpt_opt_path = weights_dir / 'ckpt_opt'
+        hparams = config.create_hparams()
+        config.save_config(config_path)
         
-        if not os.path.exists(weights_dir):
-            os.mkdir(weights_dir)
+        model = build_model(hparams, args.model_name)
+        optimizer = torch.optim.Adam(params=model.parameters(), lr=hparams.lr)
+
             
         training_state = {"epochs": 0,
                           "patience_epochs": 0,  
@@ -60,7 +64,9 @@ def train_model(args, hparams):
                           "train_score_hist": [],
                           "val_loss_hist": [],
                           "val_score_hist": []}
-
+        
+        
+        
     # Build training and validation 
     train_dl, val_dl, _ = build_dataloaders(config.DATA_DIR, hparams) 
 
@@ -124,7 +130,7 @@ def train_model(args, hparams):
                    
         # Save checkpoint to resume training
         with open(training_state_path, "w") as fw:
-            json.dump(training_state, fw)
+            json.dump(training_state, fw, indent=4)
             
         torch.save(model.state_dict(), ckpt_weights_path)
         torch.save(optimizer.state_dict(), ckpt_opt_path)
@@ -138,7 +144,8 @@ def train_model(args, hparams):
     print('____________________________________________')
 
 def main(args):
-    train_model(args, config.create_hparams())
+    
+    train_model(args)
     plot_train_hist(args.experiment_name)
 
 if __name__ == "__main__":
@@ -146,7 +153,7 @@ if __name__ == "__main__":
     parser.add_argument('--experiment_name',
                         type=str,
                         default='convpinvL2K31EX200')
-    parser.add_argument('--weights_dir',
+    parser.add_argument('--experiment_weights_dir',
                         type=str,
                         help="directory containing the the model's checkpoint weights",
                         default=None)

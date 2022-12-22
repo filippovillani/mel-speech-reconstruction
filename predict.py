@@ -13,13 +13,15 @@ import config
 
 
 
-def predict(hparams, args):
+def predict(args):
     
     experiment_dir = config.MELSPEC2SPEC_DIR / args.weights_dir
+    config_path = experiment_dir / "config.json"
     out_hat_path = experiment_dir / 'gla_from_melspec.wav'
-    metrics_path = experiment_dir / 'metrics.json'
-    
+    metrics_path = experiment_dir / 'metrics.json'    
     audio_path = config.DATA_DIR / args.audio_path
+
+    hparams = config.load_config(config_path)
 
     # Compute stft of example and then apply gla to retrieve the waveform back
     audio = open_audio(audio_path, hparams)
@@ -64,13 +66,11 @@ def predict(hparams, args):
                "si-snr (after gla)": float(si_snr_metric(stftspec_db_norm, stftspec_gla_db_norm))}
     
     with open(metrics_path, "w") as fp:
-        json.dump(metrics, fp)
+        json.dump(metrics, fp, indent=4)
 
     
 if __name__ == "__main__":
-    
-    hparams = config.create_hparams()
-    
+        
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', 
                         choices = ["unet", "librosa", "convpinv", "pinv"],
@@ -88,4 +88,4 @@ if __name__ == "__main__":
                         default='in.wav')
     
     args = parser.parse_args()
-    predict(hparams, args)
+    predict(args)

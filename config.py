@@ -1,5 +1,6 @@
 import os
 import torch
+import json
 from pathlib import Path
 from argparse import Namespace
 
@@ -28,6 +29,20 @@ def create_hparams():   # training hparams
                         n_frames = n_frames_,
                         n_stft = n_stft_)
     
+    return hparams
+
+def save_config(config_path):
+    
+    hparams = vars(create_hparams())
+    
+    with open(config_path, "w") as fp:
+        json.dump(hparams, fp, indent=4)
+
+def load_config(config_path):
+    
+    with open(config_path, "r") as fp:
+        hparams = json.load(fp)
+        
     return hparams
 
 SEED = 42

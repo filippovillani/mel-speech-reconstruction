@@ -70,22 +70,24 @@ def eval_model(model: torch.nn.Module,
 
 def main(args):
     
-    hparams = config.create_hparams()
+    config_path = config.MELSPEC2SPEC_DIR / args.experiment_name / "config.json"
+    hparams = config.load_config(config_path)
+    
     _, _, test_dl = build_dataloaders(config.DATA_DIR, hparams)
-    test_metrics_path = config.MELSPEC2SPEC_DIR / args.weights_dir / 'test_metrics.json'
+    test_metrics_path = config.MELSPEC2SPEC_DIR / args.experiment_name / 'test_metrics.json'
     if args.model_name == "librosa":
         if not os.path.exists(config.MELSPEC2SPEC_DIR / args.model_name):
             os.mkdir(config.MELSPEC2SPEC_DIR / args.model_name)       
         test_loss, test_score = eval_librosa(hparams, test_dl)
     else:
-        model = build_model(hparams, args.model_name, args.weights_dir,  args.best_weights)
+        model = build_model(hparams, args.model_name, args.experiment_name,  args.best_weights)
         test_score, test_loss = eval_model(model, test_dl)    
         
     test_metrics = {"mse": float(test_loss),
                     "si-snr": float(test_score)}
         
     with open(test_metrics_path, "w") as fp:
-        json.dump(test_metrics, fp)
+        json.dump(test_metrics, fp, indent=4)
 
 
 if __name__ == "__main__":
@@ -95,7 +97,7 @@ if __name__ == "__main__":
                         help = 'unet: evaluates unet; librosa: evaluates librosa.feature.inverse.mel_to_stft()',
                         type=str,
                         default = 'unet')
-    parser.add_argument('--weights_dir',
+    parser.add_argument('--experiment_name',
                         type=str,
                         default='unet4_32')
     parser.add_argument('--best_weights',
