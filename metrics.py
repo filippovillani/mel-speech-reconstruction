@@ -3,6 +3,8 @@ import torch
 
 import config
 
+# TODO: fix batch (if batch > 1 nothing works)
+
 def mse(s_target: torch.Tensor,
         s_hat: torch.Tensor)->torch.Tensor:
     error = s_target - s_hat
