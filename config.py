@@ -1,4 +1,6 @@
 import os
+import numpy as np
+import random
 import torch
 import json
 from pathlib import Path
@@ -8,7 +10,7 @@ def create_hparams():   # training hparams
     hparams = Namespace(batch_size = 1,
                         epochs = 70,
                         patience = 20,
-                        # audio hparams
+                        # audio and dataset hparams
                         lr = 1e-3,
                         sr = 16000,
                         n_mels = 96,
@@ -17,6 +19,7 @@ def create_hparams():   # training hparams
                         hop_len = 256,
                         audio_ms = 4080,
                         min_noise_ms = 1000,
+                        num_workers = 0,
                         # model hparams
                         first_channel_units = 64,
                         kernel_size = (3, 1))
@@ -45,17 +48,24 @@ def load_config(config_path):
     hparams = Namespace(**hparams)
     return hparams
 
+def set_seeds(seed = 42):
+    
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    
 SEED = 42
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-# DEVICE = 'cpu'
+
+set_seeds(SEED)
 
 MAIN_DIR = Path(__file__).parent
 
 # Data
 DATA_DIR = MAIN_DIR / "data"
-SPECTR_DIR = DATA_DIR / "spectr"
-MELSPECTR_DIR = DATA_DIR / "melspectr"
-WAV_DIR = DATA_DIR / "wav"
+SPECTR_DIR = DATA_DIR / "spectrograms"
 
 # Model's weights
 WEIGHTS_DIR = MAIN_DIR / "weights"
@@ -80,12 +90,6 @@ if not os.path.exists(GLA_RESULTS_DIR):
     
 if not os.path.exists(SPECTR_DIR):
     os.mkdir(SPECTR_DIR)
-
-if not os.path.exists(MELSPECTR_DIR):
-    os.mkdir(MELSPECTR_DIR)
-
-if not os.path.exists(WAV_DIR):
-    os.mkdir(WAV_DIR)
 
 if not os.path.exists(WEIGHTS_DIR):
     os.mkdir(WEIGHTS_DIR)

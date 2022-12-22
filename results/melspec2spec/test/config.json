@@ -1,0 +1,22 @@
+{
+    "batch_size": 1,
+    "epochs": 70,
+    "patience": 20,
+    "lr": 0.001,
+    "sr": 16000,
+    "n_mels": 96,
+    "n_fft": 1024,
+    "n_channels": 1,
+    "hop_len": 256,
+    "audio_ms": 4080,
+    "min_noise_ms": 1000,
+    "num_workers": 0,
+    "first_channel_units": 64,
+    "kernel_size": [
+        3,
+        1
+    ],
+    "audio_len": 65280,
+    "n_frames": 256,
+    "n_stft": 513
+}

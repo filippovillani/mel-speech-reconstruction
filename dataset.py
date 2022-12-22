@@ -8,45 +8,41 @@ from typing import Tuple
 from audioutils import to_db, normalize_db_spectr
 import config
 
-def build_dataloaders(data_dir: str,
-                      hparams: Namespace)->Tuple[DataLoader, DataLoader]:
-    ds = MelSTFTDataset(data_dir)
-    train_ds, val_ds, test_ds = random_split(ds, [0.6, 0.2, 0.2], generator=torch.Generator().manual_seed(config.SEED))
-    train_dl = DataLoader(train_ds, 
-                          hparams.batch_size, 
-                          shuffle=True)
-    val_dl = DataLoader(val_ds, 
-                        hparams.batch_size, 
-                        shuffle=False)
-    test_dl = DataLoader(test_ds, 
-                        hparams.batch_size, 
-                        shuffle=False)
+def build_dataloader(hparams: Namespace,
+                     data_dir: str,
+                     type: str = "train") -> DataLoader:
     
-    return train_dl, val_dl, test_dl
+    shuffle = True if type == "train" else False
     
-class MelSTFTDataset(Dataset):
+    ds = SpectrogramDataset(data_dir, 
+                        type = type)
+    dataloader = DataLoader(ds, 
+                            hparams.batch_size,
+                            num_workers = hparams.num_workers, 
+                            shuffle=shuffle)
+
+    
+    return dataloader
+    
+class SpectrogramDataset(Dataset):
     def __init__(self, 
-                 data_dir: str):
-        super().__init__()
+                 data_dir: str,
+                 type: str = "train"):
+        super(SpectrogramDataset, self).__init__()
         self.data_dir = data_dir
         
-        self.spectr_dir = data_dir / "spectr" 
-        self.melspectr_dir = data_dir / "melspectr" 
-        self.wav_dir = data_dir / "wav" 
+        self.spectr_dir = data_dir / "spectrograms" / type
         
-        self.melspectr_list_path = [self.melspectr_dir / path for path in os.listdir(self.melspectr_dir)]
         self.spectr_list_path = [self.spectr_dir / path for path in os.listdir(self.spectr_dir)]
-        self.wav_list_path = [self.wav_dir / path for path in os.listdir(self.wav_dir)]
        
     def __getitem__(self, idx):
         
-        wav = torch.from_numpy(np.load(self.wav_list_path[idx]))
-        melspectr = normalize_db_spectr(to_db(torch.from_numpy(np.load(self.melspectr_list_path[idx]))))
-        spectr = normalize_db_spectr(to_db(torch.from_numpy(np.load(self.spectr_list_path[idx]))))
+        spectr = normalize_db_spectr(to_db(torch.load(self.spectr_list_path[idx])))
         
-        return {'wav': wav,
-                'melspectr': melspectr,
-                'spectr': spectr}
+        return {'spectrogram': spectr}
         
     def __len__(self):
         return len(os.listdir(self.spectr_dir))
+    
+train_dl = build_dataloader(config.create_hparams(), config.DATA_DIR, "train")
+val_dl = build_dataloader(config.create_hparams(), config.DATA_DIR, "validation")

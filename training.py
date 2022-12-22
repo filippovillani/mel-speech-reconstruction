@@ -6,7 +6,7 @@ from time import time
 from tqdm import tqdm
 
 from model import build_model
-from dataset import build_dataloaders
+from dataset import build_dataloader
 from evaluate import eval_model
 from metrics import si_snr_metric, mse
 from plots import plot_train_hist
@@ -68,8 +68,8 @@ def train_model(args):
         
         
     # Build training and validation 
-    train_dl, val_dl, _ = build_dataloaders(config.DATA_DIR, hparams) 
-
+    train_dl = build_dataloader(hparams, config.DATA_DIR, "train") 
+    val_dl = build_dataloader(hparams, config.DATA_DIR, "validation") 
     print('_____________________________')
     print('       Training start')
     print('_____________________________')
@@ -84,7 +84,7 @@ def train_model(args):
    
         for n, batch in enumerate(tqdm(train_dl, desc=f'Epoch {training_state["epochs"]}')):   
             optimizer.zero_grad()  
-            stftspec_db_norm = batch["spectr"].float().to(config.DEVICE)
+            stftspec_db_norm = batch["spectrogram"].float().to(config.DEVICE)
             melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm).unsqueeze(1)
             
             stftspec_hat_db_norm = model(melspec_db_norm)
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='convpinv64L2K31EX200')
+                        default='test')
     parser.add_argument('--experiment_weights_dir',
                         type=str,
                         help="directory containing the the model's checkpoint weights",

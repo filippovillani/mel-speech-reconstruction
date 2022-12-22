@@ -11,7 +11,7 @@ import os
 
 from model import build_model, ConvPInv
 from metrics import si_snr_metric, mse
-from dataset import build_dataloaders
+from dataset import build_dataloader
 from audioutils import to_linear, denormalize_db_spectr
 import config
 
@@ -27,7 +27,7 @@ def eval_librosa(hparams: Namespace,
                                 n_mels = hparams.n_mels)  
       
     for n, batch in enumerate(tqdm(dataloader)):
-        stftspec_db_norm = batch["spectr"].squeeze()
+        stftspec_db_norm = batch["spectrogram"].squeeze()
         melspec_db_norm = np.dot(melfb, stftspec_db_norm.numpy())
         stftspec_hat_db_norm = librosa.feature.inverse.mel_to_stft(melspec_db_norm, 
                                                                    sr = hparams.sr,
@@ -52,7 +52,7 @@ def eval_model(model: torch.nn.Module,
     
     with torch.no_grad():
         for n, batch in enumerate(tqdm(dataloader)):
-            stftspec_db_norm = batch["spectr"].float().to(config.DEVICE)
+            stftspec_db_norm = batch["spectrogram"].float().to(config.DEVICE)
             melspec_db_norm = torch.matmul(model.pinvblock.melfb.float(), stftspec_db_norm)
             melspec_db_norm = melspec_db_norm.unsqueeze(1)
             
@@ -73,7 +73,7 @@ def main(args):
     config_path = config.MELSPEC2SPEC_DIR / args.experiment_name / "config.json"
     hparams = config.load_config(config_path)
     
-    _, _, test_dl = build_dataloaders(config.DATA_DIR, hparams)
+    test_dl = build_dataloader(hparams, config.DATA_DIR, "test")
     test_metrics_path = config.MELSPEC2SPEC_DIR / args.experiment_name / 'test_metrics.json'
     if args.model_name == "librosa":
         if not os.path.exists(config.MELSPEC2SPEC_DIR / args.model_name):

@@ -5,31 +5,52 @@ import numpy as np
 import pandas as pd
 import librosa
 from argparse import Namespace
+import os
+import torch
 
 import config
-from audioutils import melspectrogram, spectrogram
+
 
 def build_timit_df():
+    
     timit_dir = config.DATA_DIR / 'timit'
     timit_metadata_path = timit_dir / 'train_data.csv'
     timit_df = pd.read_csv(timit_metadata_path)
     timit_df = timit_df.loc[timit_df['is_audio']==True].loc[timit_df['is_converted_audio']==True]
     # Dropping all the columns but speech_path
     timit_df['speech_path'] = timit_dir / timit_df['path_from_data_dir'].astype(str)
-    timit_df = timit_df['speech_path'].astype(str)
-    timit_df = timit_df.sample(frac=1., random_state=config.SEED)
+    timit_df = timit_df['speech_path']
+    timit_df = timit_df.sample(frac=1.)
     timit_df = timit_df.reset_index(drop=True)
     
     return timit_df
 
-def build_data(df: pd.DataFrame,
-               hparams: Namespace):
+def split_dataframes(df,
+                     split_ratio: list = [0.6, 0.2, 0.2]):
+    
+    df_len = len(df)
+    train_len = int(df_len * split_ratio[0])
+    val_len = int(df_len * split_ratio[1])
+    train_df = df[:train_len]
+    val_df = df[train_len:train_len+val_len]
+    test_df = df[train_len+val_len:]
+    
+    return train_df, val_df, test_df
+    
+
+def build_data(hparams: Namespace,
+               df: pd.DataFrame,
+               type: str = "train"):
+    
+    out_dir = config.SPECTR_DIR / type
+    
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir) 
+        
     for path in df:
         # extract file name and use it to save the spectrograms
-        audio_name = path.split("\\")[-1]
-        wav_path = config.WAV_DIR / audio_name
-        spectr_path = config.SPECTR_DIR / audio_name
-        melspectr_path = config.MELSPECTR_DIR / audio_name
+        audio_name = path.name
+        spectr_path = out_dir / (audio_name + '.pt')
         # Open audio  
         audio, _ = librosa.load(path, sr=hparams.sr)
         
@@ -54,21 +75,17 @@ def build_data(df: pd.DataFrame,
         spectr = np.abs(librosa.stft(y=audio, 
                                      n_fft=hparams.n_fft,
                                      hop_length=hparams.hop_len))
-
-        mel_fb = librosa.filters.mel(sr = hparams.sr,
-                                     n_fft = hparams.n_fft,
-                                     n_mels = hparams.n_mels)
-        
-        melspecstr = np.dot(mel_fb, spectr)
-        
-        np.save(wav_path, audio, allow_pickle=False)
-        np.save(spectr_path, spectr, allow_pickle=False)
-        np.save(melspectr_path, melspecstr, allow_pickle=False)
+        spectr = torch.as_tensor(spectr)
+        torch.save(spectr, spectr_path)
 
 def main():
+
     hparams = config.create_hparams()
     df = build_timit_df()
-    build_data(df, hparams)
+    train_df, val_df, test_df = split_dataframes(df)
+    build_data(hparams, train_df, "train")
+    build_data(hparams, val_df, "validation")
+    build_data(hparams, test_df, "test")
 
 
 if __name__ == "__main__":
