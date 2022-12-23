@@ -17,7 +17,7 @@ def build_dataloader(hparams: Namespace,
     ds = SpectrogramDataset(data_dir, 
                         type = type)
     dataloader = DataLoader(ds, 
-                            hparams.batch_size,
+                            batch_size = hparams.batch_size,
                             num_workers = hparams.num_workers, 
                             shuffle=shuffle)
 

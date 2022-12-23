@@ -34,7 +34,6 @@ def train_model(args):
     if args.experiment_weights_dir is not None:
         hparams = config.load_config(config_path)
         
-        ckpt_weights_toload_path = config.WEIGHTS_DIR / args.experiment_weights_dir / 'ckpt_weights'
         ckpt_opt_toload_path = config.WEIGHTS_DIR / args.experiment_weights_dir / 'ckpt_opt'
         
         # Load training state
@@ -42,7 +41,7 @@ def train_model(args):
             training_state = json.load(fp)
         
         # Load model's weights and optimizer from checkpoint
-        model = build_model(hparams, args.model_name, ckpt_weights_toload_path)
+        model = build_model(hparams, args.model_name, args.experiment_weights_dir, best_weights = False)
         optimizer = torch.optim.Adam(params=model.parameters(), lr=hparams.lr)        
         optimizer.load_state_dict(torch.load(ckpt_opt_toload_path))        
         
@@ -87,15 +86,15 @@ def train_model(args):
             stftspec_db_norm = batch["spectrogram"].float().to(config.DEVICE)
             melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm).unsqueeze(1)
             
-            stftspec_hat_db_norm = model(melspec_db_norm)
+            stftspec_hat_db_norm = model(melspec_db_norm).squeeze()
             
-            loss = mse(stftspec_hat_db_norm, stftspec_db_norm)
+            loss = mse(stftspec_db_norm, stftspec_hat_db_norm)
             train_loss += ((1./(n+1))*(loss-train_loss))
             loss.backward()  
             optimizer.step()
 
-            snr_metric = si_snr_metric(to_linear(denormalize_db_spectr(stftspec_hat_db_norm)), 
-                                        to_linear(denormalize_db_spectr(stftspec_db_norm)))
+            snr_metric = si_snr_metric(to_linear(denormalize_db_spectr(stftspec_db_norm)),
+                                       to_linear(denormalize_db_spectr(stftspec_hat_db_norm)))
             train_score += ((1./(n+1))*(snr_metric-train_score))
 
             if n == 50:

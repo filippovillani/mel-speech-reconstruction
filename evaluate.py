@@ -9,7 +9,7 @@ import librosa
 import numpy as np
 import os 
 
-from model import build_model, ConvPInv
+from model import build_model
 from metrics import si_snr_metric, mse
 from dataset import build_dataloader
 from audioutils import to_linear, denormalize_db_spectr
@@ -56,7 +56,7 @@ def eval_model(model: torch.nn.Module,
             melspec_db_norm = torch.matmul(model.pinvblock.melfb.float(), stftspec_db_norm)
             melspec_db_norm = melspec_db_norm.unsqueeze(1)
             
-            stftspec_hat_db_norm = model(melspec_db_norm)
+            stftspec_hat_db_norm = model(melspec_db_norm).squeeze()
             
             loss = mse(stftspec_hat_db_norm, stftspec_db_norm)
             val_loss += ((1./(n+1))*(loss-val_loss))
@@ -100,7 +100,7 @@ if __name__ == "__main__":
                         default = 'convpinv')
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='convpinv64L2K31EX200')
+                        default='test')
     parser.add_argument('--best_weights',
                         type=bool,
                         default=True)

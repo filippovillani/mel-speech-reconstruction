@@ -36,7 +36,7 @@ class PInv(nn.Module):
         stft_hat = x / torch.max(x)
         return stft_hat
     
-    
+# TODO: add layers with hparams
 class ConvPInv(nn.Module):
     def __init__(self, hparams):
 
@@ -72,7 +72,12 @@ class ConvPInv(nn.Module):
         x = self.conv2(x)
         x = self.bn2(x)
         x = self.relu2(x)
-        stft_hat = x / torch.max(x)
+        
+        x_max = torch.as_tensor([torch.max(x[q]) for q in range(x.shape[0])])
+        stft_hat = torch.empty(x.shape)
+        for b in range(stft_hat.shape[0]):
+            stft_hat[b] = x[b] / x_max[b]
+        stft_hat = stft_hat.to(x.device)
         return stft_hat
 
 class UNet(nn.Module):
