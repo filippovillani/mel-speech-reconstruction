@@ -1,9 +1,4 @@
-import numpy as torch
 import torch
-
-import config
-
-# TODO: fix batch (if batch > 1 nothing works)
 
 def mse(s_target: torch.Tensor,
         s_hat: torch.Tensor)->torch.Tensor:
@@ -23,8 +18,9 @@ def si_snr_metric(s_target: torch.Tensor,
     Returns:
         snr (float): SI-SNR
     """
-    s_hat = (s_hat - torch.mean(s_hat)).to(config.DEVICE)
-    s_target = (s_target - torch.mean(s_target)).to(config.DEVICE)
+    # Zero-mean normalization
+    s_hat = (s_hat - torch.mean(s_hat))
+    s_target = (s_target - torch.mean(s_target))
        
     s_target = torch.div(torch.mul(torch.sum(torch.mul(s_hat, s_target)), s_target),
                          torch.sum(torch.pow(s_target, 2)) + 1e-12)
@@ -37,8 +33,8 @@ def si_snr_metric(s_target: torch.Tensor,
 def si_nsr_loss(enhanced_speech: torch.Tensor, 
                 clean_speech: torch.Tensor)->torch.Tensor:
 
-    s_hat = (enhanced_speech - torch.mean(enhanced_speech)).to(config.DEVICE)
-    s_target = (clean_speech - torch.mean(clean_speech)).to(config.DEVICE)
+    s_hat = (enhanced_speech - torch.mean(enhanced_speech))
+    s_target = (clean_speech - torch.mean(clean_speech))
        
     s_target = torch.div(torch.mul(torch.sum(torch.mul(s_hat, s_target)), s_target),
                          torch.sum(torch.pow(s_target, 2)) + 1e-12)

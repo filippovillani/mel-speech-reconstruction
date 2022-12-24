@@ -16,6 +16,7 @@
         3,
         1
     ],
+    "device": "cuda",
     "audio_len": 65280,
     "n_frames": 256,
     "n_stft": 513

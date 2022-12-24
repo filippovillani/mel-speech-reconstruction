@@ -52,7 +52,7 @@ def eval_model(model: torch.nn.Module,
     
     with torch.no_grad():
         for n, batch in enumerate(tqdm(dataloader)):
-            stftspec_db_norm = batch["spectrogram"].float().to(config.DEVICE)
+            stftspec_db_norm = batch["spectrogram"].float().to(model.device)
             melspec_db_norm = torch.matmul(model.pinvblock.melfb.float(), stftspec_db_norm)
             melspec_db_norm = melspec_db_norm.unsqueeze(1)
             

@@ -83,7 +83,7 @@ def train_model(args):
    
         for n, batch in enumerate(tqdm(train_dl, desc=f'Epoch {training_state["epochs"]}')):   
             optimizer.zero_grad()  
-            stftspec_db_norm = batch["spectrogram"].float().to(config.DEVICE)
+            stftspec_db_norm = batch["spectrogram"].float().to(hparams.device)
             melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm).unsqueeze(1)
             
             stftspec_hat_db_norm = model(melspec_db_norm).squeeze()

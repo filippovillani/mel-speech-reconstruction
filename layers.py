@@ -2,9 +2,27 @@ import torch
 import torch.nn as nn
 import librosa 
 
-import config
 
+class PInvBlock(nn.Module):
+    def __init__(self, hparams):
 
+        super(PInvBlock, self).__init__()
+        self.melfb = torch.as_tensor(librosa.filters.mel(sr = hparams.sr, 
+                                                         n_fft = hparams.n_fft, 
+                                                         n_mels = hparams.n_mels)).to(hparams.device)
+        
+    
+    def forward(self, melspec):
+        """
+        Args:
+            melspec (torch.Tensor): mel spectrogram in dB normalized in [0, 1]
+
+        Returns:
+            _type_: _description_
+        """
+        stft_hat = torch.clamp(torch.matmul(torch.linalg.pinv(self.melfb), melspec), min=0, max=1)
+        return stft_hat
+    
 class ContractingBlock(nn.Module):
     def __init__(self,
                  in_channels,
@@ -153,23 +171,3 @@ class OutBlock(nn.Module):
         out = x / torch.max(x)
         
         return out
-
-class PInvBlock(nn.Module):
-    def __init__(self, hparams):
-
-        super(PInvBlock, self).__init__()
-        self.melfb = torch.as_tensor(librosa.filters.mel(sr = hparams.sr, 
-                                                         n_fft = hparams.n_fft, 
-                                                         n_mels = hparams.n_mels)).to(config.DEVICE)
-        
-    
-    def forward(self, melspec):
-        """
-        Args:
-            melspec (torch.Tensor): mel spectrogram in dB normalized in [0, 1]
-
-        Returns:
-            _type_: _description_
-        """
-        stft_hat = torch.clamp(torch.matmul(torch.linalg.pinv(self.melfb), melspec), min=0, max=1)
-        return stft_hat

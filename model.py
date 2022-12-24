@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 from torchsummary import summary
-import librosa 
 
 from layers import ContractingBlock, ExpandingBlock, PInvBlock, OutBlock
 import config
@@ -12,11 +11,11 @@ def build_model(hparams,
                 best_weights: bool = True):
     
     if model_name == "unet":
-        model = UNet(hparams).float().to(config.DEVICE)
+        model = UNet(hparams).float().to(hparams.device)
     elif model_name == "convpinv":
-        model = ConvPInv(hparams).float().to(config.DEVICE)
+        model = ConvPInv(hparams).float().to(hparams.device)
     elif model_name == "pinv":
-        model = PInv(hparams).float().to(config.DEVICE)
+        model = PInv(hparams).float().to(hparams.device)
     if weights_dir is not None and model_name != "pinv":
         weights_path = 'best_weights' if best_weights else 'ckpt_weights'
         weights_path = config.WEIGHTS_DIR / weights_dir / weights_path
@@ -28,20 +27,20 @@ class PInv(nn.Module):
     def __init__(self, hparams):
 
         super(PInv, self).__init__()
-        self.pinvblock = PInvBlock(hparams)
-    
+        self.device = hparams.device
+        self.pinvblock = PInvBlock(hparams) 
     def forward(self, melspec):
         
         x = self.pinvblock(melspec)
         stft_hat = x / torch.max(x)
         return stft_hat
     
-# TODO: add layers with hparams
 class ConvPInv(nn.Module):
     def __init__(self, hparams):
 
         super(ConvPInv, self).__init__()
-        
+        self.device = hparams.device
+
         self.pinvblock = PInvBlock(hparams)
         self.conv1 = nn.Conv2d(in_channels = hparams.n_channels,
                                out_channels = hparams.first_channel_units,
@@ -84,7 +83,8 @@ class UNet(nn.Module):
     def __init__(self, hparams):
         
         super(UNet, self).__init__()
-        
+        self.device = hparams.device
+
         self.pinvblock = PInvBlock(hparams)
         self.contrblock1 = ContractingBlock(in_channels = hparams.n_channels,
                                             out_channels = hparams.first_channel_units,
@@ -124,9 +124,9 @@ class UNet(nn.Module):
 if __name__ == "__main__":
     
     hparams = config.create_hparams()
-    batch = torch.rand((hparams.batch_size, hparams.n_channels, hparams.n_mels, hparams.n_frames)).to(config.DEVICE)
+    batch = torch.rand((hparams.batch_size, hparams.n_channels, hparams.n_mels, hparams.n_frames)).to(hparams.device)
     
-    model = ConvPInv(hparams).to(config.DEVICE)
+    model = build_model(hparams, "convpinv")
     
     print(batch.shape)
     print(model(batch).shape)

@@ -44,7 +44,7 @@ def predict(args):
     else:
         model = build_model(hparams, args.model_name, args.weights_dir, args.best_weights)
         model.eval()
-        melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm.to(config.DEVICE)).unsqueeze(0).unsqueeze(0)
+        melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm.to(hparams.device)).unsqueeze(0).unsqueeze(0)
         stftspec_hat_db_norm = model(melspec_db_norm).cpu()     
         
     # save audio

@@ -7,6 +7,9 @@ from pathlib import Path
 from argparse import Namespace
 
 def create_hparams():   # training hparams
+    
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    
     hparams = Namespace(batch_size = 2,
                         epochs = 70,
                         patience = 20,
@@ -22,8 +25,9 @@ def create_hparams():   # training hparams
                         num_workers = 0,
                         # model hparams
                         first_channel_units = 64,
-                        kernel_size = (3, 1))
-    
+                        kernel_size = (3, 1),
+                        device = device)
+    # more audio parameters
     audio_len_ = int(hparams.sr * hparams.audio_ms // 1000)
     n_frames_ = int(audio_len_ // hparams.hop_len + 1)
     n_stft_ = int(hparams.n_fft//2 + 1)
@@ -46,6 +50,7 @@ def load_config(config_path):
     with open(config_path, "r") as fp:
         hparams = json.load(fp)
     hparams = Namespace(**hparams)
+    
     return hparams
 
 def set_seeds(seed = 42):
@@ -55,19 +60,19 @@ def set_seeds(seed = 42):
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
-    
-SEED = 42
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+# For reproducibility
+SEED = 42
 set_seeds(SEED)
 
+# Directories
 MAIN_DIR = Path(__file__).parent
 
 # Data
 DATA_DIR = MAIN_DIR / "data"
 SPECTR_DIR = DATA_DIR / "spectrograms"
 
-# Model's weights
+# Models' weights
 WEIGHTS_DIR = MAIN_DIR / "weights"
 
 # Results
