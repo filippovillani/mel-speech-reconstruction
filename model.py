@@ -77,26 +77,26 @@ class UNet(nn.Module):
 
         self.pinvblock = PInvBlock(hparams)
         self.contrblock1 = ContractingBlock(in_channels = hparams.n_channels,
-                                            out_channels = hparams.first_channel_units,
+                                            out_channels = hparams.first_unet_channel_units,
                                             kernel_size = hparams.kernel_size)
-        self.contrblock2 = ContractingBlock(in_channels = hparams.first_channel_units,
+        self.contrblock2 = ContractingBlock(in_channels = hparams.first_unet_channel_units,
                                             kernel_size = hparams.kernel_size)
 
-        self.contrblock3 = ContractingBlock(in_channels = hparams.first_channel_units * 2,
+        self.contrblock3 = ContractingBlock(in_channels = hparams.first_unet_channel_units * 2,
                                             kernel_size = hparams.kernel_size,
                                             last_block = True)
-        self.contrblock4 = ContractingBlock(in_channels = hparams.first_channel_units * 4,
+        self.contrblock4 = ContractingBlock(in_channels = hparams.first_unet_channel_units * 4,
                                             kernel_size = hparams.kernel_size,
                                             last_block = True)
 
-        self.expandblock3 = ExpandingBlock(in_channels = hparams.first_channel_units * 8,
+        self.expandblock3 = ExpandingBlock(in_channels = hparams.first_unet_channel_units * 8,
                                            kernel_size = hparams.kernel_size)
-        self.expandblock2 = ExpandingBlock(in_channels = hparams.first_channel_units * 4,
+        self.expandblock2 = ExpandingBlock(in_channels = hparams.first_unet_channel_units * 4,
                                            kernel_size = hparams.kernel_size)
-        self.expandblock1 = ExpandingBlock(in_channels = hparams.first_channel_units * 2,
+        self.expandblock1 = ExpandingBlock(in_channels = hparams.first_unet_channel_units * 2,
                                            kernel_size = hparams.kernel_size,
                                            last_block = True)
-        self.outblock = OutBlock(in_channels = hparams.first_channel_units)
+        self.outblock = OutBlock(in_channels = hparams.first_unet_channel_units)
         
     def forward(self, melspec):
         stft_hat = self.pinvblock(melspec)
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     hparams = config.create_hparams()
     batch = torch.rand((hparams.batch_size, hparams.n_channels, hparams.n_mels, hparams.n_frames)).to(hparams.device)
     
-    model = build_model(hparams, "convpinv")
+    model = build_model(hparams, "unet")
     
     print(batch.shape)
     print(model(batch).shape)

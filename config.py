@@ -24,6 +24,7 @@ def create_hparams():   # training hparams
                         min_noise_ms = 1000,
                         num_workers = 0,
                         # model hparams
+                        first_unet_channel_units = 32,
                         conv_channels = [32, 64],
                         kernel_size = (7, 3),
                         device = device)

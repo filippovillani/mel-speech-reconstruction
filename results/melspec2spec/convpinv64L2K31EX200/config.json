@@ -10,7 +10,7 @@
     "hop_len": 256,
     "audio_ms": 4080,
     "min_noise_ms": 1000,
-    "first_channel_units": 64,
+    "first_unet_channel_units": 64,
     "kernel_size": [
         3,
         1
