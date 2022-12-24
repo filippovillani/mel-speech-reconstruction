@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torchsummary import summary
 
-from layers import ContractingBlock, ExpandingBlock, PInvBlock, OutBlock
+from layers import ContractingBlock, ExpandingBlock, PInvBlock, OutBlock, ConvBlock
 import config
 
 def build_model(hparams,
@@ -13,7 +13,7 @@ def build_model(hparams,
     if model_name == "unet":
         model = UNet(hparams).float().to(hparams.device)
     elif model_name == "convpinv":
-        model = ConvPInv(hparams).float().to(hparams.device)
+        model = PInvConv(hparams).float().to(hparams.device)
     elif model_name == "pinv":
         model = PInv(hparams).float().to(hparams.device)
     if weights_dir is not None and model_name != "pinv":
@@ -35,27 +35,21 @@ class PInv(nn.Module):
         stft_hat = x / torch.max(x)
         return stft_hat
     
-class ConvPInv(nn.Module):
+class PInvConv(nn.Module):
     def __init__(self, hparams):
 
-        super(ConvPInv, self).__init__()
+        super(PInvConv, self).__init__()
         self.device = hparams.device
 
-        self.pinvblock = PInvBlock(hparams)
-        self.conv1 = nn.Conv2d(in_channels = hparams.n_channels,
-                               out_channels = hparams.first_channel_units,
-                               kernel_size = hparams.kernel_size,
-                               padding = 'same')
-        self.bn1 = nn.BatchNorm2d(hparams.first_channel_units)
-        self.relu1 = nn.ReLU()
-        self.conv2 = nn.Conv2d(in_channels = hparams.first_channel_units,
-                               out_channels = hparams.n_channels,
-                               kernel_size = hparams.kernel_size,
-                               padding = 'same')
-        self.bn2 = nn.BatchNorm2d(hparams.n_channels)
-        self.relu2 = nn.ReLU()
+        in_channels = [1] + hparams.conv_channels + hparams.conv_channels[-2::-1]
+        out_channels = in_channels[1:] + [in_channels[0]]
         
-    
+        self.pinvblock = PInvBlock(hparams)
+        self.convblocks = nn.ModuleList([ConvBlock(in_channels[l], 
+                                                   out_channels[l], 
+                                                   hparams.kernel_size) for l in range(len(in_channels))])
+        
+
     def forward(self, melspec):
         """
         Args:
@@ -65,12 +59,8 @@ class ConvPInv(nn.Module):
             _type_: _description_
         """
         x = self.pinvblock(melspec)
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu1(x)
-        x = self.conv2(x)
-        x = self.bn2(x)
-        x = self.relu2(x)
+        for l in range(len(self.convblocks)):
+            x = self.convblocks[l](x)
         
         x_max = torch.as_tensor([torch.max(x[q]) for q in range(x.shape[0])])
         stft_hat = torch.empty(x.shape)
@@ -130,6 +120,6 @@ if __name__ == "__main__":
     
     print(batch.shape)
     print(model(batch).shape)
-    print(summary(model, batch))
+    summary(model, batch)
 
     
