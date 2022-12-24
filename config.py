@@ -26,7 +26,7 @@ def create_hparams():   # training hparams
                         # model hparams
                         first_unet_channel_units = 32,
                         conv_channels = [32, 64],
-                        kernel_size = (7, 3),
+                        kernel_size = 3,
                         device = device)
     # more audio parameters
     audio_len_ = int(hparams.sr * hparams.audio_ms // 1000)

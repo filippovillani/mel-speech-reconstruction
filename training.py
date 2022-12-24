@@ -72,7 +72,7 @@ def train_model(args):
     print('_____________________________')
     print('       Training start')
     print('_____________________________')
-    while training_state["patience_epochs"] < hparams.patience and training_state["epochs"] <= hparams.epochs:
+    while training_state["patience_epochs"] < hparams.patience and training_state["epochs"] < hparams.epochs:
         training_state["epochs"] += 1 
         print(f'\n§ Train epoch: {training_state["epochs"]}\n')
         
@@ -138,7 +138,7 @@ def train_model(args):
         print('_____________________________')
 
     print('Best epoch was Epoch ', training_state["best_epoch"])    
-    print('val SI-NSR Loss:  \t', training_state["val_loss_hist"][training_state["best_epoch"]-1])
+    print('val MSE Loss    :  \t', training_state["val_loss_hist"][training_state["best_epoch"]-1])
     print('val SI-SNR Score: \t', training_state["best_val_score"])
     print('____________________________________________')
 

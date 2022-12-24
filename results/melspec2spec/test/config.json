@@ -11,11 +11,12 @@
     "audio_ms": 4080,
     "min_noise_ms": 1000,
     "num_workers": 0,
-    "first_unet_channel_units": 64,
-    "kernel_size": [
-        3,
-        1
+    "first_unet_channel_units": 32,
+    "conv_channels": [
+        32,
+        64
     ],
+    "kernel_size": 3,
     "device": "cuda",
     "audio_len": 65280,
     "n_frames": 256,

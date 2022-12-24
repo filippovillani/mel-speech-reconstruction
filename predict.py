@@ -78,7 +78,7 @@ if __name__ == "__main__":
                         default = 'convpinv')
     parser.add_argument('--weights_dir',
                         type=str,
-                        default='convpinv64L2K31EX200')
+                        default='test')
     parser.add_argument('--best_weights',
                         type=bool,
                         help='if False loads the weights from the checkpoint',
