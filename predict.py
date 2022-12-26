@@ -21,7 +21,10 @@ def predict(args):
     metrics_path = experiment_dir / 'metrics.json'    
     audio_path = config.DATA_DIR / args.audio_path
 
-    hparams = config.load_config(config_path)
+    if args.model_name != 'pinv':
+        hparams = config.load_config(config_path)
+    else:
+        hparams = config.create_hparams()
 
     # Compute stft of example and then apply gla to retrieve the waveform back
     audio = open_audio(audio_path, hparams)
@@ -75,10 +78,10 @@ if __name__ == "__main__":
     parser.add_argument('--model_name', 
                         choices = ["unet", "librosa", "convpinv", "pinv"],
                         type=str,
-                        default = 'convpinv')
+                        default = 'pinv')
     parser.add_argument('--weights_dir',
                         type=str,
-                        default='test')
+                        default='pinv_baseline')
     parser.add_argument('--best_weights',
                         type=bool,
                         help='if False loads the weights from the checkpoint',

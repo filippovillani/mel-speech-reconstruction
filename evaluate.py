@@ -71,14 +71,18 @@ def eval_model(model: torch.nn.Module,
 def main(args):
     
     config_path = config.MELSPEC2SPEC_DIR / args.experiment_name / "config.json"
-    hparams = config.load_config(config_path)
-    
+    if args.model_name != 'pinv':
+        hparams = config.load_config(config_path)
+    else:
+        hparams = config.create_hparams()
     test_dl = build_dataloader(hparams, config.DATA_DIR, "test")
     test_metrics_path = config.MELSPEC2SPEC_DIR / args.experiment_name / 'test_metrics.json'
     if args.model_name == "librosa":
         if not os.path.exists(config.MELSPEC2SPEC_DIR / args.model_name):
             os.mkdir(config.MELSPEC2SPEC_DIR / args.model_name)       
         test_loss, test_score = eval_librosa(hparams, test_dl)
+    # elif args.model_name == "pinv":
+        
     else:
         model = build_model(hparams, args.model_name, args.experiment_name,  args.best_weights)
         test_score, test_loss = eval_model(model, test_dl)    
@@ -97,7 +101,7 @@ if __name__ == "__main__":
                         help = "models: unet, librosa (evaluates librosa.feature.inverse.mel_to_stft())," 
                         "convpinv (simple CNN + pseudoinverse melfb), pinv (pseudoinverse melfb baseline)",
                         type=str,
-                        default = 'convpinv')
+                        default = 'pinv')
     parser.add_argument('--experiment_name',
                         type=str,
                         default='test')
