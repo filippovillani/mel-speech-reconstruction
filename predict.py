@@ -4,11 +4,11 @@ import soundfile as sf
 import argparse
 import json
 
-from model import build_model
-from audioutils import open_audio, to_db, normalize_db_spectr, denormalize_db_spectr, to_linear, normalize_db_spectr
+from networks.PInvConv.models import build_model
 from griffinlim import fast_griffin_lim
 from metrics import mse, si_snr_metric
-from plots import plot_prediction
+from utils.plots import plot_prediction
+from utils.audioutils import open_audio, to_db, normalize_db_spectr, denormalize_db_spectr, to_linear, normalize_db_spectr
 import config
 
 
@@ -18,8 +18,9 @@ def predict(args):
     experiment_dir = config.MELSPEC2SPEC_DIR / args.weights_dir
     config_path = experiment_dir / "config.json"
     out_hat_path = experiment_dir / 'gla_from_melspec.wav'
-    metrics_path = experiment_dir / 'metrics.json'    
+    metrics_path = experiment_dir / 'prediction_metrics.json'    
     audio_path = config.DATA_DIR / args.audio_path
+    prediction_img_path = config.MELSPEC2SPEC_DIR / args.weights_dir / 'prediction.png'  
 
     if args.model_name != 'pinv':
         hparams = config.load_config(config_path)
@@ -45,7 +46,8 @@ def predict(args):
         stftspec_hat_db_norm = torch.as_tensor(stftspec_hat_db_norm)
     
     else:
-        model = build_model(hparams, args.model_name, args.weights_dir, args.best_weights)
+        weights_dir = config.WEIGHTS_DIR / args.weights_dir
+        model = build_model(hparams, args.model_name, weights_dir, args.best_weights)
         model.eval()
         melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm.to(hparams.device)).unsqueeze(0).unsqueeze(0)
         stftspec_hat_db_norm = model(melspec_db_norm).cpu()     
@@ -58,11 +60,10 @@ def predict(args):
     stftspec_gla_db_norm =  normalize_db_spectr(to_db(torch.abs(torch.as_tensor(librosa.stft(y=out_hat, 
                                                                                              n_fft=hparams.n_fft,
                                                                                              hop_length=hparams.hop_len)))))
-      
     plot_prediction(denormalize_db_spectr(stftspec_db_norm).cpu().numpy().squeeze(), 
                     denormalize_db_spectr(stftspec_hat_db_norm).cpu().detach().numpy().squeeze(), 
                     hparams, 
-                    args.weights_dir)
+                    prediction_img_path)
     
     metrics = {"mse": float(mse(stftspec_db_norm, stftspec_hat_db_norm)),
                "si-snr": float(si_snr_metric(stftspec_db_norm, stftspec_hat_db_norm)),
@@ -78,10 +79,10 @@ if __name__ == "__main__":
     parser.add_argument('--model_name', 
                         choices = ["unet", "librosa", "convpinv", "pinv"],
                         type=str,
-                        default = 'pinv')
+                        default = 'convpinv')
     parser.add_argument('--weights_dir',
                         type=str,
-                        default='pinv_baseline')
+                        default='test')
     parser.add_argument('--best_weights',
                         type=bool,
                         help='if False loads the weights from the checkpoint',

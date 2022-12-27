@@ -1,9 +1,7 @@
 import torch
 import torch.nn as nn
-from torchsummary import summary
 
-from layers import ContractingBlock, ExpandingBlock, PInvBlock, OutBlock, ConvBlock
-import config
+from networks.PInvConv.layers import ContractingBlock, ExpandingBlock, PInvBlock, OutBlock, ConvBlock
 
 def build_model(hparams,
                 model_name,
@@ -16,9 +14,11 @@ def build_model(hparams,
         model = PInvConv(hparams).float().to(hparams.device)
     elif model_name == "pinv":
         model = PInv(hparams).float().to(hparams.device)
+    else:
+        raise ValueError(f"model_name must be one of [unet, convpinv, pinv], received: {str(model_name)}")
+        
     if weights_dir is not None and model_name != "pinv":
-        weights_path = 'best_weights' if best_weights else 'ckpt_weights'
-        weights_path = config.WEIGHTS_DIR / weights_dir / weights_path
+        weights_path = (weights_dir / 'best_weights') if best_weights else (weights_dir / 'ckpt_weights')
         model.load_state_dict(torch.load(weights_path))
     
     return model 
@@ -29,6 +29,7 @@ class PInv(nn.Module):
         super(PInv, self).__init__()
         self.device = hparams.device
         self.pinvblock = PInvBlock(hparams) 
+        
     def forward(self, melspec):
         
         x = self.pinvblock(melspec)
@@ -107,19 +108,4 @@ class UNet(nn.Module):
         x = self.expandblock1(x, x_cat1)
         out = self.outblock(x)
         
-        return out
-     
- 
-# Debug model:
-if __name__ == "__main__":
-    
-    hparams = config.create_hparams()
-    batch = torch.rand((hparams.batch_size, hparams.n_channels, hparams.n_mels, hparams.n_frames)).to(hparams.device)
-    
-    model = build_model(hparams, "unet")
-    
-    print(batch.shape)
-    print(model(batch).shape)
-    summary(model, batch)
-
-    
+        return out  

@@ -5,12 +5,12 @@ import argparse
 from time import time
 from tqdm import tqdm
 
-from model import build_model
+from networks.PInvConv.models import build_model
 from dataset import build_dataloader
 from evaluate import eval_model
 from metrics import si_snr_metric, mse
-from plots import plot_train_hist
-from audioutils import to_linear, denormalize_db_spectr
+from utils.plots import plot_train_hist
+from utils.audioutils import to_linear, denormalize_db_spectr
 import config
 
 
@@ -35,13 +35,13 @@ def train_model(args):
         hparams = config.load_config(config_path)
         
         ckpt_opt_toload_path = config.WEIGHTS_DIR / args.experiment_weights_dir / 'ckpt_opt'
-        
+        experiment_weights_dir = config.WEIGHTS_DIR / args.experiment_weights_dir
         # Load training state
         with open(training_state_path, "r") as fp:
             training_state = json.load(fp)
         
-        # Load model's weights and optimizer from checkpoint
-        model = build_model(hparams, args.model_name, args.experiment_weights_dir, best_weights = False)
+        # Load model's weights and optimizer from checkpoint  
+        model = build_model(hparams, args.model_name, experiment_weights_dir, best_weights = False)
         optimizer = torch.optim.Adam(params=model.parameters(), lr=hparams.lr)        
         optimizer.load_state_dict(torch.load(ckpt_opt_toload_path))        
         
@@ -96,7 +96,8 @@ def train_model(args):
             snr_metric = si_snr_metric(to_linear(denormalize_db_spectr(stftspec_db_norm)),
                                        to_linear(denormalize_db_spectr(stftspec_hat_db_norm)))
             train_score += ((1./(n+1))*(snr_metric-train_score))
-
+            if n == 50:
+                break
         training_state["train_loss_hist"].append(train_loss.item())
         training_state["train_score_hist"].append(train_score.item())
         print(f'Training loss:     {training_state["train_loss_hist"][-1]:.4f}')
@@ -131,7 +132,7 @@ def train_model(args):
             
         torch.save(model.state_dict(), ckpt_weights_path)
         torch.save(optimizer.state_dict(), ckpt_opt_path)
-
+        plot_train_hist(experiment_dir)
         print(f'Epoch time: {int(((time()-start_epoch))//60)} min {int((((time()-start_epoch))%60)*60/100)} s')
         print('_____________________________')
 
@@ -142,8 +143,8 @@ def train_model(args):
 
 def main(args):
     
+    experiment_dir = config.MELSPEC2SPEC_DIR / args.experiment_name
     train_model(args)
-    plot_train_hist(args.experiment_name)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -1,11 +1,9 @@
 import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 from argparse import Namespace
-import numpy as np
 import os
-from typing import Tuple
 
-from audioutils import to_db, normalize_db_spectr
+from utils.audioutils import to_db, normalize_db_spectr
 import config
 
 def build_dataloader(hparams: Namespace,

@@ -1,4 +1,3 @@
-from pathlib import Path
 import json
 import argparse
 from argparse import Namespace
@@ -9,10 +8,10 @@ import librosa
 import numpy as np
 import os 
 
-from model import build_model
+from networks.PInvConv.models import build_model
 from metrics import si_snr_metric, mse
 from dataset import build_dataloader
-from audioutils import to_linear, denormalize_db_spectr
+from utils.audioutils import to_linear, denormalize_db_spectr
 import config
 
 
@@ -64,27 +63,31 @@ def eval_model(model: torch.nn.Module,
             score = si_snr_metric(to_linear(denormalize_db_spectr(stftspec_hat_db_norm)), 
                                     to_linear(denormalize_db_spectr(stftspec_db_norm)))
             val_score += ((1./(n+1))*(score-val_score))
-            
+
+            if n == 50:
+                break
     return val_score, val_loss
    
 
 def main(args):
     
     config_path = config.MELSPEC2SPEC_DIR / args.experiment_name / "config.json"
+    
     if args.model_name != 'pinv':
         hparams = config.load_config(config_path)
     else:
         hparams = config.create_hparams()
+        
     test_dl = build_dataloader(hparams, config.DATA_DIR, "test")
     test_metrics_path = config.MELSPEC2SPEC_DIR / args.experiment_name / 'test_metrics.json'
     if args.model_name == "librosa":
         if not os.path.exists(config.MELSPEC2SPEC_DIR / args.model_name):
             os.mkdir(config.MELSPEC2SPEC_DIR / args.model_name)       
         test_loss, test_score = eval_librosa(hparams, test_dl)
-    # elif args.model_name == "pinv":
         
     else:
-        model = build_model(hparams, args.model_name, args.experiment_name,  args.best_weights)
+        weights_dir = config.WEIGHTS_DIR / args.experiment_name
+        model = build_model(hparams, args.model_name, weights_dir, args.best_weights)
         test_score, test_loss = eval_model(model, test_dl)    
         
     test_metrics = {"mse": float(test_loss),
@@ -101,7 +104,7 @@ if __name__ == "__main__":
                         help = "models: unet, librosa (evaluates librosa.feature.inverse.mel_to_stft())," 
                         "convpinv (simple CNN + pseudoinverse melfb), pinv (pseudoinverse melfb baseline)",
                         type=str,
-                        default = 'pinv')
+                        default = 'convpinv')
     parser.add_argument('--experiment_name',
                         type=str,
                         default='test')
