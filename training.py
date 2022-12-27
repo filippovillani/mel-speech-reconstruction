@@ -64,15 +64,16 @@ def train_model(args):
                           "val_loss_hist": [],
                           "val_score_hist": []}
         
-        
-        
     # Build training and validation 
     train_dl = build_dataloader(hparams, config.DATA_DIR, "train") 
     val_dl = build_dataloader(hparams, config.DATA_DIR, "validation") 
+    
+    # Start training
     print('_____________________________')
     print('       Training start')
     print('_____________________________')
     while training_state["patience_epochs"] < hparams.patience and training_state["epochs"] < hparams.epochs:
+        
         training_state["epochs"] += 1 
         print(f'\n§ Train epoch: {training_state["epochs"]}\n')
         
