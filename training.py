@@ -5,7 +5,7 @@ import argparse
 from time import time
 from tqdm import tqdm
 
-from networks.PInvConv.models import build_model
+from networks.build_model import build_model
 from dataset import build_dataloader
 from evaluate import eval_model
 from metrics import si_snr_metric, mse

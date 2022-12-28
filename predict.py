@@ -4,7 +4,7 @@ import soundfile as sf
 import argparse
 import json
 
-from networks.PInvConv.models import build_model
+from networks.build_model import build_model
 from griffinlim import fast_griffin_lim
 from metrics import mse, si_snr_metric
 from utils.plots import plot_prediction

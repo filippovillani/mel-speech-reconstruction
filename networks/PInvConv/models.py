@@ -1,27 +1,8 @@
 import torch
 import torch.nn as nn
 
-from networks.PInvConv.layers import ContractingBlock, ExpandingBlock, PInvBlock, OutBlock, ConvBlock
+from .layers import PInvBlock, ConvBlock
 
-def build_model(hparams,
-                model_name,
-                weights_dir = None,
-                best_weights: bool = True):
-    
-    if model_name == "unet":
-        model = UNet(hparams).float().to(hparams.device)
-    elif model_name == "convpinv":
-        model = PInvConv(hparams).float().to(hparams.device)
-    elif model_name == "pinv":
-        model = PInv(hparams).float().to(hparams.device)
-    else:
-        raise ValueError(f"model_name must be one of [unet, convpinv, pinv], received: {str(model_name)}")
-        
-    if weights_dir is not None and model_name != "pinv":
-        weights_path = (weights_dir / 'best_weights') if best_weights else (weights_dir / 'ckpt_weights')
-        model.load_state_dict(torch.load(weights_path))
-    
-    return model 
 
 class PInv(nn.Module):
     def __init__(self, hparams):
@@ -69,43 +50,3 @@ class PInvConv(nn.Module):
             stft_hat[b] = x[b] / x_max[b]
         stft_hat = stft_hat.to(x.device)
         return stft_hat
-
-class UNet(nn.Module):
-    def __init__(self, hparams):
-        
-        super(UNet, self).__init__()
-        self.device = hparams.device
-
-        self.pinvblock = PInvBlock(hparams)
-        self.contrblock1 = ContractingBlock(in_channels = hparams.n_channels,
-                                            out_channels = hparams.first_unet_channel_units,
-                                            kernel_size = hparams.kernel_size)
-        self.contrblock2 = ContractingBlock(in_channels = hparams.first_unet_channel_units,
-                                            kernel_size = hparams.kernel_size)
-
-        self.contrblock3 = ContractingBlock(in_channels = hparams.first_unet_channel_units * 2,
-                                            kernel_size = hparams.kernel_size,
-                                            last_block = True)
-        self.contrblock4 = ContractingBlock(in_channels = hparams.first_unet_channel_units * 4,
-                                            kernel_size = hparams.kernel_size,
-                                            last_block = True)
-
-        self.expandblock3 = ExpandingBlock(in_channels = hparams.first_unet_channel_units * 8,
-                                           kernel_size = hparams.kernel_size)
-        self.expandblock2 = ExpandingBlock(in_channels = hparams.first_unet_channel_units * 4,
-                                           kernel_size = hparams.kernel_size)
-        self.expandblock1 = ExpandingBlock(in_channels = hparams.first_unet_channel_units * 2,
-                                           kernel_size = hparams.kernel_size,
-                                           last_block = True)
-        self.outblock = OutBlock(in_channels = hparams.first_unet_channel_units)
-        
-    def forward(self, melspec):
-        stft_hat = self.pinvblock(melspec)
-        x, x_cat1 = self.contrblock1(stft_hat)
-        x, x_cat2 = self.contrblock2(x)
-        x, _ = self.contrblock3(x)
-        x = self.expandblock2(x, x_cat2)
-        x = self.expandblock1(x, x_cat1)
-        out = self.outblock(x)
-        
-        return out  

@@ -8,7 +8,7 @@ import librosa
 import numpy as np
 import os 
 
-from networks.PInvConv.models import build_model
+from networks.build_model import build_model
 from metrics import si_snr_metric, mse
 from dataset import build_dataloader
 from utils.audioutils import to_linear, denormalize_db_spectr
