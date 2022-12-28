@@ -71,7 +71,7 @@ MAIN_DIR = Path(__file__).parent
 
 # Data
 DATA_DIR = MAIN_DIR / "data"
-SPECTR_DIR = DATA_DIR / "spectrograms"
+STFT_DIR = DATA_DIR / "stft"
 
 # Models' weights
 WEIGHTS_DIR = MAIN_DIR / "weights"
@@ -94,8 +94,8 @@ if not os.path.exists(WINDOWS_IMG_DIR):
 if not os.path.exists(GLA_RESULTS_DIR):
     os.mkdir(GLA_RESULTS_DIR)
     
-if not os.path.exists(SPECTR_DIR):
-    os.mkdir(SPECTR_DIR)
+if not os.path.exists(STFT_DIR):
+    os.mkdir(STFT_DIR)
 
 if not os.path.exists(WEIGHTS_DIR):
     os.mkdir(WEIGHTS_DIR)

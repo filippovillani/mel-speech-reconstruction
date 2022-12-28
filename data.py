@@ -42,7 +42,7 @@ def build_data(hparams: Namespace,
                df: pd.DataFrame,
                type: str = "train"):
     
-    out_dir = config.SPECTR_DIR / type
+    out_dir = config.STFT_DIR / type
     
     if not os.path.exists(out_dir):
         os.mkdir(out_dir) 
@@ -72,9 +72,9 @@ def build_data(hparams: Namespace,
         # Normalize audio
         audio = (audio - audio.mean()) / (audio.std() + 1e-12)
         
-        spectr = np.abs(librosa.stft(y=audio, 
-                                     n_fft=hparams.n_fft,
-                                     hop_length=hparams.hop_len))
+        spectr = librosa.stft(y=audio, 
+                              n_fft=hparams.n_fft,
+                              hop_length=hparams.hop_len)
         spectr = torch.as_tensor(spectr)
         torch.save(spectr, spectr_path)
 
