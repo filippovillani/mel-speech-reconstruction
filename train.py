@@ -43,33 +43,7 @@ class Trainer:
                                    "train_score_hist": [],
                                    "val_loss_hist": [],
                                    "val_score_hist": []} 
-        
-    def _set_hparams(self, resume_training):
-        
-        if resume_training:
-            self.hprms = config.load_config(self.config_path)
-        else:
-            self.hprms = config.create_hparams()
-            config.save_config(self.config_path)
-                
-    def _set_paths(self, experiment_name):
-        
-        self.experiment_dir = config.MELSPEC2SPEC_DIR / experiment_name            
-        self.experiment_weights_dir = config.WEIGHTS_DIR / experiment_name
-
-        # json
-        self.training_state_path = self.experiment_dir / "train_state.json"    
-        self.config_path = self.experiment_dir / "config.json"
-        # torch
-        self.best_weights_path = self.experiment_weights_dir / 'best_weights'
-        self.ckpt_weights_path = self.experiment_weights_dir / 'ckpt_weights'
-        self.ckpt_opt_path = self.experiment_weights_dir / 'ckpt_opt'
-        
-        if not os.path.exists(self.experiment_dir):
-            os.mkdir(self.experiment_dir)
-                
-        if not os.path.exists(self.experiment_weights_dir):
-            os.mkdir(self.experiment_weights_dir)        
+               
     
     def train(self, train_dl, val_dl):
         
@@ -141,6 +115,33 @@ class Trainer:
 
         return self.training_state
 
+    def _set_hparams(self, resume_training):
+        
+        if resume_training:
+            self.hprms = config.load_config(self.config_path)
+        else:
+            self.hprms = config.create_hparams()
+            config.save_config(self.config_path)
+                
+    def _set_paths(self, experiment_name):
+        
+        self.experiment_dir = config.MELSPEC2SPEC_DIR / experiment_name            
+        self.experiment_weights_dir = config.WEIGHTS_DIR / experiment_name
+
+        # json
+        self.training_state_path = self.experiment_dir / "train_state.json"    
+        self.config_path = self.experiment_dir / "config.json"
+        # torch
+        self.best_weights_path = self.experiment_weights_dir / 'best_weights'
+        self.ckpt_weights_path = self.experiment_weights_dir / 'ckpt_weights'
+        self.ckpt_opt_path = self.experiment_weights_dir / 'ckpt_opt'
+        
+        if not os.path.exists(self.experiment_dir):
+            os.mkdir(self.experiment_dir)
+                
+        if not os.path.exists(self.experiment_weights_dir):
+            os.mkdir(self.experiment_weights_dir) 
+            
     def _update_training_state(self, train_loss, train_score, val_loss, val_score):
             
             self.training_state["train_loss_hist"].append(train_loss.item())
