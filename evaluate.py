@@ -12,7 +12,7 @@ from train import Trainer
 from networks.build_model import build_model
 from metrics import si_snr_metric, mse
 from dataset import build_dataloader
-from utils.audioutils import to_db, to_linear, normalize_db_spectr, denormalize_db_spectr
+from utils.audioutils import to_linear, denormalize_db_spectr
 import config
 
 
@@ -85,8 +85,8 @@ if __name__ == "__main__":
                         default = 'convpinv')
     parser.add_argument('--task',
                         type=str,
-                        choices=["mel2stft", "stft2wav"],
-                        default='mel2stft')
+                        choices=["mel2spec", "spec2wav"],
+                        default='mel2spec')
     parser.add_argument('--experiment_name',
                         type=str,
                         default='test')

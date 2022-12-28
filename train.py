@@ -69,8 +69,8 @@ class Trainer:
                 self.optimizer.zero_grad()  
                 x_stft = batch["stft"].to(self.hprms.device)
                 
-                if args.task == "mel2stft":
-                    x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2stft(x_stft)
+                if args.task == "mel2spec":
+                    x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec(x_stft)
                     
                     x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze()
                     
@@ -82,7 +82,7 @@ class Trainer:
                                                to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
                     train_score += ((1./(n+1))*(snr_metric-train_score))                                    
                 
-                elif args.task == "stft2wav":
+                elif args.task == "spec2wav":
                     # TODO
                     pass
                 
@@ -139,8 +139,8 @@ class Trainer:
             for n, batch in enumerate(pbar):   
                 x_stft = batch["stft"].to(model.device)
                 
-                if task == "mel2stft":
-                    x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2stft(x_stft)
+                if task == "mel2spec":
+                    x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec(x_stft)
                     
                     x_stftspec_hat_db_norm = model(x_melspec_db_norm).squeeze()
                     
@@ -151,7 +151,7 @@ class Trainer:
                                             to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
                     test_score += ((1./(n+1))*(snr_metric-test_score))  
                 
-                elif task == "stft2wav":
+                elif task == "spec2wav":
                     pass
                 
                 pbar.set_postfix_str(f'mse: {test_loss:.6f}, si-snr: {test_score:.3f}')  
@@ -161,7 +161,7 @@ class Trainer:
                 
         return test_score, test_loss
 
-    def _preprocess_mel2stft(self, x_stft):
+    def _preprocess_mel2spec(self, x_stft):
         
         x_stftspec_db_norm = normalize_db_spectr(to_db(torch.abs(x_stft))).float()
         x_melspec_db_norm = torch.matmul(self.melfb, x_stftspec_db_norm).unsqueeze(1)
@@ -232,8 +232,8 @@ if __name__ == "__main__":
                         default='convpinv')
     parser.add_argument('--task',
                         type=str,
-                        choices=["mel2stft", "stft2wav"],
-                        default='mel2stft')
+                        choices=["mel2spec", "spec2wav"],
+                        default='mel2spec')
     parser.add_argument('--experiment_name',
                         type=str,
                         default='test')
