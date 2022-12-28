@@ -5,28 +5,23 @@ import os
 
 from utils.audioutils import to_db, normalize_db_spectr
 
-def build_spectrogram_dataloader(hparams: Namespace,
-                                 data_dir: str,
-                                 set_type: str = "train") -> DataLoader:
-    
-    shuffle = True if set_type == "train" else False
-    
-    ds = SpectrogramDataset(data_dir, 
-                            set_type = set_type)
-    dataloader = DataLoader(ds, 
-                            batch_size = hparams.batch_size,
-                            num_workers = hparams.num_workers, 
-                            shuffle=shuffle)
-    return dataloader
 
-def build_stft_dataloader(hparams: Namespace,
-                          data_dir: str,
-                          set_type: str = "train") -> DataLoader:
+def build_dataloader(hparams: Namespace,
+                     data_dir: str,
+                     task: str,
+                     set_type: str = "train") -> DataLoader:
     
     shuffle = True if set_type == "train" else False
     
-    ds = STFTDataset(data_dir, 
-                     set_type = set_type)
+    if task == "stft2wav":
+        ds = STFTDataset(data_dir, 
+                         set_type = set_type)
+    elif task == "mel2stft":
+        ds = SpectrogramDataset(data_dir, 
+                                set_type = set_type)
+    else:
+        raise ValueError(f"task must be one of [stft2wav, mel2stft], received {task}")
+    
     dataloader = DataLoader(ds, 
                             batch_size = hparams.batch_size,
                             num_workers = hparams.num_workers, 
