@@ -13,153 +13,167 @@ from utils.plots import plot_train_hist
 from utils.audioutils import to_linear, denormalize_db_spectr
 import config
 
+class Trainer:
+    def __init__(self, args):
+        
+        self._set_paths(args.experiment_name)
+        self._set_hparams(args.resume_training)
 
-def train_model(args):
-    
-    experiment_dir = config.MELSPEC2SPEC_DIR / args.experiment_name
-    if not os.path.exists(experiment_dir):
-        os.mkdir(experiment_dir)
-    experiment_weights_dir = config.WEIGHTS_DIR / args.experiment_name
-    if not os.path.exists(experiment_weights_dir):
-        os.mkdir(experiment_weights_dir)
+        if args.resume_training:
+            # Load training state
+            with open(self.training_state_path, "r") as fp:
+                self.training_state = json.load(fp)
         
-    # json
-    training_state_path = experiment_dir / "train_state.json"    
-    config_path = experiment_dir / "config.json"
-    # torch
-    best_weights_path = experiment_weights_dir / 'best_weights'
-    ckpt_weights_path = experiment_weights_dir / 'ckpt_weights'
-    ckpt_opt_path = experiment_weights_dir / 'ckpt_opt'
-    
-    if args.experiment_weights_dir is not None:
-        hparams = config.load_config(config_path)
-        
-        ckpt_opt_toload_path = config.WEIGHTS_DIR / args.experiment_weights_dir / 'ckpt_opt'
-        experiment_weights_dir = config.WEIGHTS_DIR / args.experiment_weights_dir
-        # Load training state
-        with open(training_state_path, "r") as fp:
-            training_state = json.load(fp)
-        
-        # Load model's weights and optimizer from checkpoint  
-        model = build_model(hparams, args.model_name, experiment_weights_dir, best_weights = False)
-        optimizer = torch.optim.Adam(params=model.parameters(), lr=hparams.lr)        
-        optimizer.load_state_dict(torch.load(ckpt_opt_toload_path))        
-        
-         
-    else:
-        hparams = config.create_hparams()
-        config.save_config(config_path)
-        
-        model = build_model(hparams, args.model_name)
-        optimizer = torch.optim.Adam(params=model.parameters(), lr=hparams.lr)
+            # Load model's weights and optimizer from checkpoint  
+            self.model = build_model(self.hprms, args.model_name, self.experiment_weights_dir, best_weights = False)
+            self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)        
+            self.optimizer.load_state_dict(torch.load(self.ckpt_opt_path)) 
+            
+        else:        
+            self.model = build_model(self.hprms, args.model_name)
+            self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)
 
-            
-        training_state = {"epochs": 0,
-                          "patience_epochs": 0,  
-                          "best_val_loss": 9999,
-                          "best_val_score": 0,
-                          "best_epoch": 0,
-                          "train_loss_hist": [],
-                          "train_score_hist": [],
-                          "val_loss_hist": [],
-                          "val_score_hist": []}
+                
+            self.training_state = {"epochs": 0,
+                                   "patience_epochs": 0,  
+                                   "best_epoch": 0,
+                                   "best_val_loss": 9999,
+                                   "best_val_score": 0,
+                                   "train_loss_hist": [],
+                                   "train_score_hist": [],
+                                   "val_loss_hist": [],
+                                   "val_score_hist": []} 
         
-    # Build training and validation 
-    train_dl = build_dataloader(hparams, config.DATA_DIR, "train") 
-    val_dl = build_dataloader(hparams, config.DATA_DIR, "validation") 
-    
-    # Start training
-    print('_____________________________')
-    print('       Training start')
-    print('_____________________________')
-    while training_state["patience_epochs"] < hparams.patience and training_state["epochs"] < hparams.epochs:
+    def _set_hparams(self, resume_training):
         
-        training_state["epochs"] += 1 
-        print(f'\n§ Train epoch: {training_state["epochs"]}\n')
-        
-        model.train()
-        train_loss = 0.
-        train_score = 0.
-        start_epoch = time()        
-   
-        for n, batch in enumerate(tqdm(train_dl, desc=f'Epoch {training_state["epochs"]}')):   
-            optimizer.zero_grad()  
-            stftspec_db_norm = batch["spectrogram"].float().to(hparams.device)
-            melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm).unsqueeze(1)
-            
-            stftspec_hat_db_norm = model(melspec_db_norm).squeeze()
-            
-            loss = mse(stftspec_db_norm, stftspec_hat_db_norm)
-            train_loss += ((1./(n+1))*(loss-train_loss))
-            loss.backward()  
-            optimizer.step()
-
-            snr_metric = si_snr_metric(to_linear(denormalize_db_spectr(stftspec_db_norm)),
-                                       to_linear(denormalize_db_spectr(stftspec_hat_db_norm)))
-            train_score += ((1./(n+1))*(snr_metric-train_score))
-            if n == 50:
-                break
-        training_state["train_loss_hist"].append(train_loss.item())
-        training_state["train_score_hist"].append(train_score.item())
-        print(f'Training loss:     {training_state["train_loss_hist"][-1]:.4f}')
-        print(f'Training SI-SNR:   {training_state["train_score_hist"][-1]:.4f} dB\n')
-        
-        # Evaluate on the validation set
-        print(f'Evaluating the model on validation set...')
-        val_score, val_loss = eval_model(model=model, 
-                                         dataloader=val_dl)
-        
-        training_state["val_loss_hist"].append(val_loss.item())
-        training_state["val_score_hist"].append(val_score.item())
-        
-        print(f'Validation Loss:   {val_loss:.4f}')
-        print(f'Validation SI-SNR: {val_score:.4f} dB\n')
-        
-        if val_score <= training_state["best_val_score"]:
-            training_state["patience_epochs"] += 1
-            print(f'\nBest epoch was Epoch {training_state["best_epoch"]}: Validation SI-SNR = {training_state["best_val_score"]} dB')
+        if resume_training:
+            self.hprms = config.load_config(self.config_path)
         else:
-            training_state["patience_epochs"] = 0
-            training_state["best_val_score"] = val_score.item()
-            training_state["best_val_loss"] = val_loss.item()
-            training_state["best_epoch"] = training_state["epochs"]
-            print("\nSI-SNR on validation set improved")
-            # Save the best model
-            torch.save(model.state_dict(), best_weights_path)
-                   
-        # Save checkpoint to resume training
-        with open(training_state_path, "w") as fw:
-            json.dump(training_state, fw, indent=4)
-            
-        torch.save(model.state_dict(), ckpt_weights_path)
-        torch.save(optimizer.state_dict(), ckpt_opt_path)
-        plot_train_hist(experiment_dir)
-        print(f'Epoch time: {int(((time()-start_epoch))//60)} min {int((((time()-start_epoch))%60)*60/100)} s')
-        print('_____________________________')
+            self.hprms = config.create_hparams()
+            config.save_config(self.config_path)
+                
+    def _set_paths(self, experiment_name):
+        
+        self.experiment_dir = config.MELSPEC2SPEC_DIR / experiment_name            
+        self.experiment_weights_dir = config.WEIGHTS_DIR / experiment_name
 
-    print('Best epoch was Epoch ', training_state["best_epoch"])    
-    print('val MSE Loss    :  \t', training_state["val_loss_hist"][training_state["best_epoch"]-1])
-    print('val SI-SNR Score: \t', training_state["best_val_score"])
-    print('____________________________________________')
+        # json
+        self.training_state_path = self.experiment_dir / "train_state.json"    
+        self.config_path = self.experiment_dir / "config.json"
+        # torch
+        self.best_weights_path = self.experiment_weights_dir / 'best_weights'
+        self.ckpt_weights_path = self.experiment_weights_dir / 'ckpt_weights'
+        self.ckpt_opt_path = self.experiment_weights_dir / 'ckpt_opt'
+        
+        if not os.path.exists(self.experiment_dir):
+            os.mkdir(self.experiment_dir)
+                
+        if not os.path.exists(self.experiment_weights_dir):
+            os.mkdir(self.experiment_weights_dir)        
+    
+    def train(self, train_dl, val_dl):
+        
+        print('_____________________________')
+        print('       Training start')
+        print('_____________________________')
+        while self.training_state["patience_epochs"] < self.hprms.patience and self.training_state["epochs"] < self.hprms.epochs:
+            
+            self.training_state["epochs"] += 1 
+            print(f'\n§ Train Epoch: {self.training_state["epochs"]}\n')
+            
+            self.model.train()
+            train_loss = 0.
+            train_score = 0.
+            start_epoch = time()        
+            pbar = tqdm(train_dl, desc=f'Epoch {self.training_state["epochs"]}', postfix='[]')
+            for n, batch in enumerate(pbar):   
+                self.optimizer.zero_grad()  
+                stftspec_db_norm = batch["spectrogram"].float().to(self.hprms.device)
+                melspec_db_norm = torch.matmul(self.model.pinvblock.melfb, stftspec_db_norm).unsqueeze(1)
+                
+                stftspec_hat_db_norm = self.model(melspec_db_norm).squeeze()
+                
+                loss = mse(stftspec_db_norm, stftspec_hat_db_norm)
+                train_loss += ((1./(n+1))*(loss-train_loss))
+                loss.backward()  
+                self.optimizer.step()
+
+                snr_metric = si_snr_metric(to_linear(denormalize_db_spectr(stftspec_db_norm)),
+                                        to_linear(denormalize_db_spectr(stftspec_hat_db_norm)))
+                train_score += ((1./(n+1))*(snr_metric-train_score))
+                
+                pbar.set_postfix_str(f'mse: {train_loss:.6f}, si-snr: {train_score:.3f}')
+                if n == 10:
+                    break
+            self.training_state["train_loss_hist"].append(train_loss.item())
+            self.training_state["train_score_hist"].append(train_score.item())
+
+            
+            # Evaluate on the validation set
+            val_score, val_loss = eval_model(model=self.model, 
+                                             dataloader=val_dl)
+            
+            self.training_state["val_loss_hist"].append(val_loss.item())
+            self.training_state["val_score_hist"].append(val_score.item())
+            print(f'Training loss:     {self.training_state["train_loss_hist"][-1]:.6f} \t| Validation Loss:   {val_loss:.6f}')
+            print(f'Training SI-SNR:   {self.training_state["train_score_hist"][-1]:.4f} dB \t| Validation SI-SNR: {val_score:.4f} dB')
+            
+            if val_score <= self.training_state["best_val_score"]:
+                self.training_state["patience_epochs"] += 1
+                print(f'\nBest epoch was Epoch {self.training_state["best_epoch"]}: Validation SI-SNR = {self.training_state["best_val_score"]} dB')
+            else:
+                self.training_state["patience_epochs"] = 0
+                self.training_state["best_val_score"] = val_score.item()
+                self.training_state["best_val_loss"] = val_loss.item()
+                self.training_state["best_epoch"] = self.training_state["epochs"]
+                print("\nSI-SNR on validation set improved")
+                # Save the best model
+                torch.save(self.model.state_dict(), self.best_weights_path)
+                    
+            # Save checkpoint to resume training
+            with open(self.training_state_path, "w") as fw:
+                json.dump(self.training_state, fw, indent=4)
+                
+            torch.save(self.model.state_dict(), self.ckpt_weights_path)
+            torch.save(self.optimizer.state_dict(), self.ckpt_opt_path)
+            plot_train_hist(self.experiment_dir)
+            print(f'Epoch time: {int(((time()-start_epoch))//60)} min {int((((time()-start_epoch))%60)*60/100)} s')
+            print('_____________________________')
+
+        print('Best epoch was Epoch ', self.training_state["best_epoch"])    
+        print('val MSE Loss    :  \t', self.training_state["val_loss_hist"][self.training_state["best_epoch"]-1])
+        print('val SI-SNR Score: \t', self.training_state["best_val_score"])
+        print('____________________________________________')
+
+        return self.training_state
 
 def main(args):
     
-    experiment_dir = config.MELSPEC2SPEC_DIR / args.experiment_name
-    train_model(args)
+    trainer = Trainer(args)
+    
+    train_dl = build_dataloader(trainer.hprms, config.DATA_DIR, args.task , "train")
+    val_dl = build_dataloader(trainer.hprms, config.DATA_DIR, args.task, "validation")
+    
+    training_state = trainer.train(train_dl, val_dl)
+    print(training_state)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('--model_name',
+                        type=str,
+                        choices=["unet", "convpinv", "degli"],
+                        default='convpinv')
+    parser.add_argument('--task',
+                        type=str,
+                        choices=["mel2stft", "stft2wav"],
+                        default='mel2stft')
     parser.add_argument('--experiment_name',
                         type=str,
                         default='test')
-    parser.add_argument('--experiment_weights_dir',
-                        type=str,
-                        help="directory containing the the model's checkpoint weights",
-                        default=None)
-    parser.add_argument('--model_name',
-                        type=str,
-                        choices=["unet", "convpinv"],
-                        default='convpinv')
+    parser.add_argument('--resume_training',
+                        type=bool,
+                        help="set to True if you want to restart training from a checkpoint",
+                        default=False)
     
     args = parser.parse_args()
     main(args)
