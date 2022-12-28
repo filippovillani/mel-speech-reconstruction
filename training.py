@@ -103,20 +103,50 @@ class Trainer:
                 train_score += ((1./(n+1))*(snr_metric-train_score))
                 
                 pbar.set_postfix_str(f'mse: {train_loss:.6f}, si-snr: {train_score:.3f}')
+                
                 if n == 10:
                     break
-            self.training_state["train_loss_hist"].append(train_loss.item())
-            self.training_state["train_score_hist"].append(train_score.item())
 
-            
             # Evaluate on the validation set
             val_score, val_loss = eval_model(model=self.model, 
                                              dataloader=val_dl)
             
+            print(f'Training loss:     {train_loss.item():.6f} \t| Validation Loss:   {val_loss.item():.6f}')
+            print(f'Training SI-SNR:   {train_score.item():.4f} dB \t| Validation SI-SNR: {val_score.item():.4f} dB')
+            
+            
+            # Update training state and plot history
+            self._update_training_state(train_loss, train_score, val_loss, val_score)
+            plot_train_hist(self.experiment_dir)
+            
+            # Save the best model
+            if self.training_state["patience_epochs"] == 0:
+                torch.save(self.model.state_dict(), self.best_weights_path)
+                    
+            # Save checkpoint to resume training
+            with open(self.training_state_path, "w") as fw:
+                json.dump(self.training_state, fw, indent=4)    
+            torch.save(self.model.state_dict(), self.ckpt_weights_path)
+            torch.save(self.optimizer.state_dict(), self.ckpt_opt_path)
+            
+            
+            print(f'Epoch time: {int(((time()-start_epoch))//60)} min {int((((time()-start_epoch))%60)*60/100)} s')
+            print('_____________________________')
+
+        print('____________________________________________')
+        print('Best epoch was Epoch ', self.training_state["best_epoch"])    
+        print(f'Training loss:     {self.training_state["train_loss_hist"][self.training_state["best_epoch"]-1]:.6f} \t| Validation Loss:   {self.training_state["val_loss_hist"][self.training_state["best_epoch"]-1]}')
+        print(f'Training SI-SNR:   {self.training_state["train_score_hist"][self.training_state["best_epoch"]-1]:.4f} dB \t| Validation SI-SNR: {self.training_state["best_val_score"]} dB')
+        print('____________________________________________')
+
+        return self.training_state
+
+    def _update_training_state(self, train_loss, train_score, val_loss, val_score):
+            
+            self.training_state["train_loss_hist"].append(train_loss.item())
+            self.training_state["train_score_hist"].append(train_score.item())
             self.training_state["val_loss_hist"].append(val_loss.item())
             self.training_state["val_score_hist"].append(val_score.item())
-            print(f'Training loss:     {self.training_state["train_loss_hist"][-1]:.6f} \t| Validation Loss:   {val_loss:.6f}')
-            print(f'Training SI-SNR:   {self.training_state["train_score_hist"][-1]:.4f} dB \t| Validation SI-SNR: {val_score:.4f} dB')
             
             if val_score <= self.training_state["best_val_score"]:
                 self.training_state["patience_epochs"] += 1
@@ -127,25 +157,7 @@ class Trainer:
                 self.training_state["best_val_loss"] = val_loss.item()
                 self.training_state["best_epoch"] = self.training_state["epochs"]
                 print("\nSI-SNR on validation set improved")
-                # Save the best model
-                torch.save(self.model.state_dict(), self.best_weights_path)
-                    
-            # Save checkpoint to resume training
-            with open(self.training_state_path, "w") as fw:
-                json.dump(self.training_state, fw, indent=4)
-                
-            torch.save(self.model.state_dict(), self.ckpt_weights_path)
-            torch.save(self.optimizer.state_dict(), self.ckpt_opt_path)
-            plot_train_hist(self.experiment_dir)
-            print(f'Epoch time: {int(((time()-start_epoch))//60)} min {int((((time()-start_epoch))%60)*60/100)} s')
-            print('_____________________________')
 
-        print('Best epoch was Epoch ', self.training_state["best_epoch"])    
-        print('val MSE Loss    :  \t', self.training_state["val_loss_hist"][self.training_state["best_epoch"]-1])
-        print('val SI-SNR Score: \t', self.training_state["best_val_score"])
-        print('____________________________________________')
-
-        return self.training_state
 
 def main(args):
     
