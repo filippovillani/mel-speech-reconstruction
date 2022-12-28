@@ -48,9 +48,9 @@ def eval_model(model: torch.nn.Module,
 
     val_score = 0.
     val_loss = 0.
-    
+    pbar = tqdm(dataloader, desc=f'Evaluation', postfix='[]')
     with torch.no_grad():
-        for n, batch in enumerate(tqdm(dataloader)):
+        for n, batch in enumerate(pbar):
             stftspec_db_norm = batch["spectrogram"].float().to(model.device)
             melspec_db_norm = torch.matmul(model.pinvblock.melfb.float(), stftspec_db_norm)
             melspec_db_norm = melspec_db_norm.unsqueeze(1)
@@ -63,7 +63,8 @@ def eval_model(model: torch.nn.Module,
             score = si_snr_metric(to_linear(denormalize_db_spectr(stftspec_hat_db_norm)), 
                                     to_linear(denormalize_db_spectr(stftspec_db_norm)))
             val_score += ((1./(n+1))*(score-val_score))
-
+            
+            pbar.set_postfix_str(f'mse: {val_loss:.6f}, si-snr: {val_score:.3f}')
             if n == 50:
                 break
     return val_score, val_loss
@@ -78,7 +79,7 @@ def main(args):
     else:
         hparams = config.create_hparams()
         
-    test_dl = build_dataloader(hparams, config.DATA_DIR, "test")
+    test_dl = build_dataloader(hparams, config.DATA_DIR, "mel2stft", "test")
     test_metrics_path = config.MELSPEC2SPEC_DIR / args.experiment_name / 'test_metrics.json'
     if args.model_name == "librosa":
         if not os.path.exists(config.MELSPEC2SPEC_DIR / args.model_name):
