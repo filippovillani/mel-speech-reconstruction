@@ -2,7 +2,7 @@ import torch
 
 from networks.PInvConv.models import PInv, PInvConv
 from networks.UNet.models import UNet
-from networks.DeGLI.layers import DeGLIBlock
+from networks.DeGLI.models import DeGLIBlock
 
 def build_model(hparams,
                 model_name,
@@ -15,8 +15,10 @@ def build_model(hparams,
         model = PInvConv(hparams).float().to(hparams.device)
     elif model_name.lower() == "pinv":
         model = PInv(hparams).float().to(hparams.device)
+    elif model_name.lower() == "degliblock":
+        model = DeGLIBlock(hparams).float().to(hparams.device)
     else:
-        raise ValueError(f"model_name must be one of [unet, convpinv, pinv], received: {str(model_name)}")
+        raise ValueError(f"model_name must be one of [unet, convpinv, pinv, degliblock], received: {str(model_name)}")
         
     if weights_dir is not None and model_name != "pinv":
         weights_path = (weights_dir / 'best_weights') if best_weights else (weights_dir / 'ckpt_weights')

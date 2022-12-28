@@ -83,9 +83,21 @@ class Trainer:
                     train_score += ((1./(n+1))*(snr_metric-train_score))                                    
                 
                 elif args.task == "spec2wav":
-                    # TODO
+                    x_stft, x_spectr = self._preprocess_spec2wav(x_stft)
+                    x_stft_hat = self.model(x_spectr)
+                    
+                    loss = mse(x_stft, x_stft_hat)
+                    train_loss += ((1./(n+1))*(loss-train_loss))
+                    loss.backward()  
+                    self.optimizer.step()    
+                    
+                    snr_metric = si_snr_metric(x_stft, x_stft_hat)
+                    train_score += ((1./(n+1))*(snr_metric-train_score)) 
+                    
+                elif args.task == "mel2wav":
+                    # TODO: not implemented yet 
+                    # stack ConvPInv and DeGLI
                     pass
-                
                 pbar.set_postfix_str(f'mse: {train_loss:.6f}, si-snr: {train_score:.3f}')
                 
                 if n == 20:
@@ -141,7 +153,6 @@ class Trainer:
                 
                 if task == "mel2spec":
                     x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec(x_stft)
-                    
                     x_stftspec_hat_db_norm = model(x_melspec_db_norm).squeeze()
                     
                     loss = mse(x_stftspec_db_norm, x_stftspec_hat_db_norm)
@@ -152,7 +163,14 @@ class Trainer:
                     test_score += ((1./(n+1))*(snr_metric-test_score))  
                 
                 elif task == "spec2wav":
-                    pass
+                    x_stft, x_spectr = self._preprocess_spec2wav(x_stft)
+                    x_stft_hat = self.model(x_spectr)
+                    
+                    loss = mse(x_stft, x_stft_hat)
+                    test_loss += ((1./(n+1))*(loss-test_loss))
+                    
+                    snr_metric = si_snr_metric(x_stft, x_stft_hat)
+                    test_score += ((1./(n+1))*(snr_metric-test_score)) 
                 
                 pbar.set_postfix_str(f'mse: {test_loss:.6f}, si-snr: {test_score:.3f}')  
                 
@@ -167,6 +185,14 @@ class Trainer:
         x_melspec_db_norm = torch.matmul(self.melfb, x_stftspec_db_norm).unsqueeze(1)
         
         return x_stftspec_db_norm, x_melspec_db_norm
+
+    def _preprocess_spec2wav(self, x_stft):
+        
+        x_spectr = torch.abs(x_stft).float().unsqueeze(1)
+        x_stft = torch.view_as_real(x_stft).float() # split real and imaginary parts on an axis
+        x_stft = x_stft.permute(0, 3, 1, 2)
+        
+        return x_stft, x_spectr
 
     
     def _set_hparams(self, resume_training):
@@ -228,12 +254,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name',
                         type=str,
-                        choices=["unet", "convpinv", "degli"],
-                        default='convpinv')
+                        choices=["unet", "convpinv", "degliblock"],
+                        default='degliblock')
     parser.add_argument('--task',
                         type=str,
                         choices=["mel2spec", "spec2wav"],
-                        default='mel2spec')
+                        default='spec2wav')
     parser.add_argument('--experiment_name',
                         type=str,
                         default='test')
