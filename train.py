@@ -2,15 +2,16 @@ import torch
 import os
 import json
 import argparse
+import librosa
 from time import time
 from tqdm import tqdm
+from torch.utils.data import DataLoader
 
 from networks.build_model import build_model
 from dataset import build_dataloader
-from evaluate import eval_model
 from metrics import si_snr_metric, mse
 from utils.plots import plot_train_hist
-from utils.audioutils import to_linear, denormalize_db_spectr
+from utils.audioutils import to_db, to_linear, normalize_db_spectr, denormalize_db_spectr
 import config
 
 class Trainer:
@@ -18,7 +19,9 @@ class Trainer:
         
         self._set_paths(args.experiment_name)
         self._set_hparams(args.resume_training)
-
+        self.melfb = torch.as_tensor(librosa.filters.mel(sr = self.hprms.sr, 
+                                                         n_fft = self.hprms.n_fft, 
+                                                         n_mels = self.hprms.n_mels)).to(self.hprms.device)
         if args.resume_training:
             # Load training state
             with open(self.training_state_path, "r") as fp:
@@ -50,6 +53,7 @@ class Trainer:
         print('_____________________________')
         print('       Training start')
         print('_____________________________')
+        
         while self.training_state["patience_epochs"] < self.hprms.patience and self.training_state["epochs"] < self.hprms.epochs:
             
             self.training_state["epochs"] += 1 
@@ -60,38 +64,40 @@ class Trainer:
             train_score = 0.
             start_epoch = time()        
             pbar = tqdm(train_dl, desc=f'Epoch {self.training_state["epochs"]}', postfix='[]')
+            
             for n, batch in enumerate(pbar):   
                 self.optimizer.zero_grad()  
-                stftspec_db_norm = batch["spectrogram"].float().to(self.hprms.device)
-                melspec_db_norm = torch.matmul(self.model.pinvblock.melfb, stftspec_db_norm).unsqueeze(1)
+                x_stft = batch["stft"].to(self.hprms.device)
                 
-                stftspec_hat_db_norm = self.model(melspec_db_norm).squeeze()
+                if args.task == "mel2stft":
+                    x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2stft(x_stft)
+                    
+                    x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze()
+                    
+                    loss = mse(x_stftspec_db_norm, x_stftspec_hat_db_norm)
+                    train_loss += ((1./(n+1))*(loss-train_loss))
+                    loss.backward()  
+                    self.optimizer.step()    
+                    snr_metric = si_snr_metric(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
+                                               to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
+                    train_score += ((1./(n+1))*(snr_metric-train_score))                                    
                 
-                loss = mse(stftspec_db_norm, stftspec_hat_db_norm)
-                train_loss += ((1./(n+1))*(loss-train_loss))
-                loss.backward()  
-                self.optimizer.step()
-
-                snr_metric = si_snr_metric(to_linear(denormalize_db_spectr(stftspec_db_norm)),
-                                        to_linear(denormalize_db_spectr(stftspec_hat_db_norm)))
-                train_score += ((1./(n+1))*(snr_metric-train_score))
+                elif args.task == "stft2wav":
+                    # TODO
+                    pass
                 
                 pbar.set_postfix_str(f'mse: {train_loss:.6f}, si-snr: {train_score:.3f}')
                 
-                if n == 10:
+                if n == 20:
                     break
 
             # Evaluate on the validation set
-            val_score, val_loss = eval_model(model=self.model, 
-                                             dataloader=val_dl)
+            val_score, val_loss = self.eval_model(model=self.model, 
+                                                  test_dl=val_dl,
+                                                  task=args.task)
             
-            print(f'Training loss:     {train_loss.item():.6f} \t| Validation Loss:   {val_loss.item():.6f}')
-            print(f'Training SI-SNR:   {train_score.item():.4f} dB \t| Validation SI-SNR: {val_score.item():.4f} dB')
-            
-            
-            # Update training state and plot history
+            # Update training state
             self._update_training_state(train_loss, train_score, val_loss, val_score)
-            plot_train_hist(self.experiment_dir)
             
             # Save the best model
             if self.training_state["patience_epochs"] == 0:
@@ -103,8 +109,12 @@ class Trainer:
             torch.save(self.model.state_dict(), self.ckpt_weights_path)
             torch.save(self.optimizer.state_dict(), self.ckpt_opt_path)
             
+            # Save plot of train history
+            plot_train_hist(self.experiment_dir)            
             
-            print(f'Epoch time: {int(((time()-start_epoch))//60)} min {int((((time()-start_epoch))%60)*60/100)} s')
+            print(f'Training loss:     {train_loss.item():.6f} \t| Validation Loss:   {val_loss.item():.6f}')
+            print(f'Training SI-SNR:   {train_score.item():.4f} dB \t| Validation SI-SNR: {val_score.item():.4f} dB')
+            print(f'Epoch time: {int(((time()-start_epoch))//60)} min {int(((time()-start_epoch))%60)} s')
             print('_____________________________')
 
         print('____________________________________________')
@@ -115,6 +125,50 @@ class Trainer:
 
         return self.training_state
 
+    def eval_model(self,
+                   model: torch.nn.Module, 
+                   test_dl: DataLoader,
+                   task: str)->torch.Tensor:
+
+        model.eval()
+
+        test_score = 0.
+        test_loss = 0.
+        pbar = tqdm(test_dl, desc=f'Evaluation', postfix='[]')
+        with torch.no_grad():
+            for n, batch in enumerate(pbar):   
+                x_stft = batch["stft"].to(model.device)
+                
+                if task == "mel2stft":
+                    x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2stft(x_stft)
+                    
+                    x_stftspec_hat_db_norm = model(x_melspec_db_norm).squeeze()
+                    
+                    loss = mse(x_stftspec_db_norm, x_stftspec_hat_db_norm)
+                    test_loss += ((1./(n+1))*(loss-test_loss))
+                    
+                    snr_metric = si_snr_metric(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
+                                            to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
+                    test_score += ((1./(n+1))*(snr_metric-test_score))  
+                
+                elif task == "stft2wav":
+                    pass
+                
+                pbar.set_postfix_str(f'mse: {test_loss:.6f}, si-snr: {test_score:.3f}')  
+                
+                if n == 50:
+                    break
+                
+        return test_score, test_loss
+
+    def _preprocess_mel2stft(self, x_stft):
+        
+        x_stftspec_db_norm = normalize_db_spectr(to_db(torch.abs(x_stft))).float()
+        x_melspec_db_norm = torch.matmul(self.melfb, x_stftspec_db_norm).unsqueeze(1)
+        
+        return x_stftspec_db_norm, x_melspec_db_norm
+
+    
     def _set_hparams(self, resume_training):
         
         if resume_training:
@@ -164,8 +218,8 @@ def main(args):
     
     trainer = Trainer(args)
     
-    train_dl = build_dataloader(trainer.hprms, config.DATA_DIR, args.task , "train")
-    val_dl = build_dataloader(trainer.hprms, config.DATA_DIR, args.task, "validation")
+    train_dl = build_dataloader(trainer.hprms, config.DATA_DIR, "train")
+    val_dl = build_dataloader(trainer.hprms, config.DATA_DIR, "validation")
     
     training_state = trainer.train(train_dl, val_dl)
     print(training_state)
