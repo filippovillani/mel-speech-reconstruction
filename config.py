@@ -6,34 +6,42 @@ import json
 from pathlib import Path
 from argparse import Namespace
 
-def create_hparams():   # training hparams
+def create_hparams(model_name: str = None):   # training hparams
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    
-    hparams = Namespace(batch_size = 2,
+    if model_name == "unet":
+        model_hparams = Namespace(first_unet_channel_units = 32)
+    elif model_name == "convpinv":
+        model_hparams = Namespace(conv_channels = [32, 64],
+                                  kernel_size = 3)
+    elif model_name == "degli" or model_name == "degliblock":
+        model_hparams = Namespace(hidden_channel = 16,
+                                  kernel_size = 3,
+                                  n_degli_blocks = 10)
+    else:
+        model_hparams = Namespace()
+        
+    hparams = Namespace(batch_size = 1,
+                        lr = 1e-3,
                         epochs = 70,
                         patience = 20,
-                        # audio and dataset hparams
-                        lr = 1e-3,
+                        num_workers = 0,
+                        device = device,
+                        # audio hparams
                         sr = 16000,
                         n_mels = 96,
                         n_fft = 1024,
                         n_channels = 1,
                         hop_len = 256,
                         audio_ms = 4080,
-                        min_noise_ms = 1000,
-                        num_workers = 0,
-                        # model hparams
-                        first_unet_channel_units = 32, # UNet
-                        hidden_channel = 32,    # DeGLI block
-                        conv_channels = [32, 64],
-                        kernel_size = 3,
-                        device = device)
+                        min_noise_ms = 1000)
     # more audio parameters
     audio_len_ = int(hparams.sr * hparams.audio_ms // 1000)
     n_frames_ = int(audio_len_ // hparams.hop_len + 1)
     n_stft_ = int(hparams.n_fft//2 + 1)
+    
     hparams = Namespace(**vars(hparams),
+                        **vars(model_hparams),
                         audio_len = audio_len_,
                         n_frames = n_frames_,
                         n_stft = n_stft_)
@@ -82,6 +90,7 @@ RESULTS_DIR = MAIN_DIR / "results"
 GLA_RESULTS_DIR = RESULTS_DIR / "gla"
 WINDOWS_IMG_DIR = RESULTS_DIR / "windows"
 MELSPEC2SPEC_DIR = RESULTS_DIR / "melspec2spec"
+SPEC2WAV_DIR = RESULTS_DIR / "spec2wav"
 
 if not os.path.exists(RESULTS_DIR):
     os.mkdir(RESULTS_DIR)
@@ -103,3 +112,6 @@ if not os.path.exists(WEIGHTS_DIR):
 
 if not os.path.exists(MELSPEC2SPEC_DIR):
     os.mkdir(MELSPEC2SPEC_DIR)
+
+if not os.path.exists(SPEC2WAV_DIR):
+    os.mkdir(SPEC2WAV_DIR)

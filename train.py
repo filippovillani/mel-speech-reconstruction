@@ -17,7 +17,7 @@ import config
 class Trainer:
     def __init__(self, args):
         
-        self._set_paths(args.experiment_name)
+        self._set_paths(args.experiment_name, args.task)
         self._set_hparams(args.resume_training)
         self.melfb = torch.as_tensor(librosa.filters.mel(sr = self.hprms.sr, 
                                                          n_fft = self.hprms.n_fft, 
@@ -69,39 +69,49 @@ class Trainer:
                 self.optimizer.zero_grad()  
                 x_stft = batch["stft"].to(self.hprms.device)
                 
-                if args.task == "mel2spec":
+                if args.task == "melspec2spec":
                     x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec(x_stft)
-                    
                     x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze()
                     
                     loss = mse(x_stftspec_db_norm, x_stftspec_hat_db_norm)
                     train_loss += ((1./(n+1))*(loss-train_loss))
                     loss.backward()  
                     self.optimizer.step()    
+                    
                     snr_metric = si_snr_metric(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
                                                to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
                     train_score += ((1./(n+1))*(snr_metric-train_score))                                    
                 
+                
+                #sf.write(r'out.wav', x_wav_hat.cpu().detach().numpy().squeeze(), samplerate=16000)
+                
                 elif args.task == "spec2wav":
-                    x_stft, x_spectr = self._preprocess_spec2wav(x_stft)
-                    x_stft_hat = self.model(x_spectr)
+                    x_spectr = torch.abs(x_stft).float().unsqueeze(1)
                     
-                    loss = mse(x_stft, x_stft_hat)
+                    x_stft_hat, x_wav_hat = self.model(x_spectr)
+                    x_stft_hat_mag, x_stft_hat_phase = self._postprocess_spec2wav(x_stft_hat)
+                    
+                    loss = mse(torch.angle(x_stft), x_stft_hat_phase)
                     train_loss += ((1./(n+1))*(loss-train_loss))
                     loss.backward()  
                     self.optimizer.step()    
                     
-                    snr_metric = si_snr_metric(x_stft, x_stft_hat)
+                    snr_metric = si_snr_metric(torch.abs(x_stft), x_stft_hat_mag)
                     train_score += ((1./(n+1))*(snr_metric-train_score)) 
                     
                 elif args.task == "mel2wav":
                     # TODO: not implemented yet 
                     # stack ConvPInv and DeGLI
                     pass
+                
+                else:
+                    raise ValueError(f"task must be one of [melspec2spec, spec2wav, mel2wav], \
+                        received {args.task}")
+                    
                 pbar.set_postfix_str(f'mse: {train_loss:.6f}, si-snr: {train_score:.3f}')
                 
-                if n == 20:
-                    break
+                # if n == 20:
+                #     break
 
             # Evaluate on the validation set
             val_score, val_loss = self.eval_model(model=self.model, 
@@ -136,7 +146,7 @@ class Trainer:
         print('____________________________________________')
 
         return self.training_state
-
+    
     def eval_model(self,
                    model: torch.nn.Module, 
                    test_dl: DataLoader,
@@ -151,7 +161,7 @@ class Trainer:
             for n, batch in enumerate(pbar):   
                 x_stft = batch["stft"].to(model.device)
                 
-                if task == "mel2spec":
+                if task == "melspec2spec":
                     x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec(x_stft)
                     x_stftspec_hat_db_norm = model(x_melspec_db_norm).squeeze()
                     
@@ -163,20 +173,20 @@ class Trainer:
                     test_score += ((1./(n+1))*(snr_metric-test_score))  
                 
                 elif task == "spec2wav":
-                    x_stft, x_spectr = self._preprocess_spec2wav(x_stft)
-                    x_stft_hat = self.model(x_spectr)
+                    x_spectr = torch.abs(x_stft).float().unsqueeze(1)
                     
-                    loss = mse(x_stft, x_stft_hat)
+                    x_stft_hat, x_wav_hat = self.model(x_spectr)
+                    x_stft_hat_mag, x_stft_hat_phase = self._postprocess_spec2wav(x_stft_hat)
+                    
+                    loss = mse(torch.angle(x_stft), x_stft_hat_phase)
                     test_loss += ((1./(n+1))*(loss-test_loss))
                     
-                    snr_metric = si_snr_metric(x_stft, x_stft_hat)
+                    snr_metric = si_snr_metric(torch.abs(x_stft), x_stft_hat_mag)
                     test_score += ((1./(n+1))*(snr_metric-test_score)) 
                 
                 pbar.set_postfix_str(f'mse: {test_loss:.6f}, si-snr: {test_score:.3f}')  
-                
-                if n == 50:
-                    break
-                
+                # if n == 20:
+                #     break    
         return test_score, test_loss
 
     def _preprocess_mel2spec(self, x_stft):
@@ -187,25 +197,45 @@ class Trainer:
         return x_stftspec_db_norm, x_melspec_db_norm
 
     def _preprocess_spec2wav(self, x_stft):
-        
+        """
+        Takes complex valued x_stft and returns its real and imaginary parts and its spectrogram 
+
+        Args:
+            x_stft (torch.Tensor): torch.complex of shape [batch, n_stft, n_frames]
+
+        Returns:
+            x_stft (torch.Tensor): torch.float of shape [batch, 2, n_stft, n_frames] containing STFT of input
+            signal split into real and imaginary parts on axis=1 
+            x_spectr (torch.Tensor): torch.float of shape [batch, 1, n_stft, n_frames] containing the spectrogram
+            of input signal
+        """
         x_spectr = torch.abs(x_stft).float().unsqueeze(1)
-        x_stft = torch.view_as_real(x_stft).float() # split real and imaginary parts on an axis
+        x_stft = torch.view_as_real(x_stft).float() # split real and imaginary parts on -1 axis
         x_stft = x_stft.permute(0, 3, 1, 2)
         
         return x_stft, x_spectr
 
+    def _postprocess_spec2wav(self, x_stft_re_im):
+        x_mag = torch.sqrt(x_stft_re_im[:,0]**2 + x_stft_re_im[:,1]**2)
+        x_phase = torch.atan2(x_stft_re_im[:,0], x_stft_re_im[:,1])
+        return x_mag, x_phase    
     
     def _set_hparams(self, resume_training):
         
         if resume_training:
             self.hprms = config.load_config(self.config_path)
         else:
-            self.hprms = config.create_hparams()
+            self.hprms = config.create_hparams(args.model_name)
             config.save_config(self.config_path)
                 
-    def _set_paths(self, experiment_name):
+    def _set_paths(self, experiment_name, task):
         
-        self.experiment_dir = config.MELSPEC2SPEC_DIR / experiment_name            
+        if task == "melspec2spec":
+            results_dir = config.MELSPEC2SPEC_DIR 
+        elif task == "spec2wav":
+            results_dir = config.SPEC2WAV_DIR 
+            
+        self.experiment_dir = results_dir / experiment_name            
         self.experiment_weights_dir = config.WEIGHTS_DIR / experiment_name
 
         # json
@@ -247,18 +277,18 @@ def main(args):
     train_dl = build_dataloader(trainer.hprms, config.DATA_DIR, "train")
     val_dl = build_dataloader(trainer.hprms, config.DATA_DIR, "validation")
     
-    training_state = trainer.train(train_dl, val_dl)
-    print(training_state)
+    _ = trainer.train(train_dl, val_dl)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name',
                         type=str,
-                        choices=["unet", "convpinv", "degliblock"],
-                        default='degliblock')
+                        choices=["unet", "convpinv", "degliblock", "degli"],
+                        default='degli')
     parser.add_argument('--task',
                         type=str,
-                        choices=["mel2spec", "spec2wav"],
+                        choices=["melspec2spec", "spec2wav"],
                         default='spec2wav')
     parser.add_argument('--experiment_name',
                         type=str,

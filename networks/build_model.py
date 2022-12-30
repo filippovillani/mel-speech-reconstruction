@@ -2,7 +2,7 @@ import torch
 
 from networks.PInvConv.models import PInv, PInvConv
 from networks.UNet.models import UNet
-from networks.DeGLI.models import DeGLIBlock
+from networks.DeGLI.models import DeGLIBlock, DeGLI
 
 def build_model(hparams,
                 model_name,
@@ -17,6 +17,8 @@ def build_model(hparams,
         model = PInv(hparams).float().to(hparams.device)
     elif model_name.lower() == "degliblock":
         model = DeGLIBlock(hparams).float().to(hparams.device)
+    elif model_name.lower() == "degli":
+        model = DeGLI(hparams).float().to(hparams.device)
     else:
         raise ValueError(f"model_name must be one of [unet, convpinv, pinv, degliblock], received: {str(model_name)}")
         

@@ -7,19 +7,19 @@ class ConvDNN(nn.Module):
         super(ConvDNN, self).__init__()
         self.convblock1 = ConvBlock(in_channels = 6,
                                     out_channels = hparams.hidden_channel,
-                                    kernel_size = (11, 11))
+                                    kernel_size = hparams.kernel_size)
         self.convblock23 = nn.Sequential(ConvBlock(in_channels = hparams.hidden_channel // 2,
                                                    out_channels = hparams.hidden_channel,
-                                                   kernel_size = (7, 3)),
+                                                   kernel_size = hparams.kernel_size),
                                          ConvBlock(in_channels = hparams.hidden_channel // 2,
                                                    out_channels = hparams.hidden_channel,
-                                                   kernel_size = (7, 3)))
+                                                   kernel_size = hparams.kernel_size))
         self.convblock45 = nn.Sequential(ConvBlock(in_channels = hparams.hidden_channel // 2,
                                                    out_channels = hparams.hidden_channel,
-                                                   kernel_size = (7, 3)),  
+                                                   kernel_size = hparams.kernel_size),  
                                          ConvBlock(in_channels = hparams.hidden_channel // 2,
                                                    out_channels = 2,
-                                                   kernel_size = (7, 3),
+                                                   kernel_size = hparams.kernel_size,
                                                    last_block = True))
         
     def forward(self, x, x_amp_proj, x_cons_proj):
@@ -31,9 +31,6 @@ class ConvDNN(nn.Module):
         
         return x
             
-        
-
-
 class ConvBlock(nn.Module):  
     def __init__(self, 
                  in_channels, 

@@ -85,8 +85,8 @@ if __name__ == "__main__":
                         default = 'convpinv')
     parser.add_argument('--task',
                         type=str,
-                        choices=["mel2spec", "spec2wav"],
-                        default='mel2spec')
+                        choices=["melspec2spec", "spec2wav"],
+                        default='melspec2spec')
     parser.add_argument('--experiment_name',
                         type=str,
                         default='test')
