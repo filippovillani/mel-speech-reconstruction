@@ -1,18 +1,23 @@
-import torch
-import os
-import json
 import argparse
-import librosa
+import json
+import os
 from time import time
-from tqdm import tqdm
-from torch.utils.data import DataLoader
 
-from networks.build_model import build_model
-from dataset import build_dataloader
-from metrics import si_snr_metric, mse
-from utils.plots import plot_train_hist
-from utils.audioutils import to_db, to_linear, normalize_db_spectr, denormalize_db_spectr
+import librosa
+import torch
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+from pystoi import stoi
+
 import config
+from dataset import build_dataloader
+from metrics import mse, si_snr_metric
+from networks.build_model import build_model
+from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr,
+                              to_db, to_linear)
+from utils.plots import plot_train_hist
+from utils.utils import c_to_r2, r2_to_mag_phase
+
 
 class Trainer:
     def __init__(self, args):
@@ -22,6 +27,9 @@ class Trainer:
         self.melfb = torch.as_tensor(librosa.filters.mel(sr = self.hprms.sr, 
                                                          n_fft = self.hprms.n_fft, 
                                                          n_mels = self.hprms.n_mels)).to(self.hprms.device)
+        self.loss = torch.nn.L1Loss()
+        # self.loss = torch.nn.MSELoss()
+
         if args.resume_training:
             # Load training state
             with open(self.training_state_path, "r") as fp:
@@ -61,7 +69,8 @@ class Trainer:
             
             self.model.train()
             train_loss = 0.
-            train_score = 0.
+            train_snr_score = 0.
+            train_stoi_score = 0.
             start_epoch = time()        
             pbar = tqdm(train_dl, desc=f'Epoch {self.training_state["epochs"]}', postfix='[]')
             
@@ -80,24 +89,31 @@ class Trainer:
                     
                     snr_metric = si_snr_metric(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
                                                to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
-                    train_score += ((1./(n+1))*(snr_metric-train_score))                                    
-                
-                
-                #sf.write(r'out.wav', x_wav_hat.cpu().detach().numpy().squeeze(), samplerate=16000)
-                
+                    train_snr_score += ((1./(n+1))*(snr_metric-train_snr_score))                                    
+                                
                 elif args.task == "spec2wav":
-                    x_spectr = torch.abs(x_stft).float().unsqueeze(1)
+                    x_stft_mag = torch.abs(x_stft).float().unsqueeze(1)
+                    noise = self._create_noise(x_stft)
+                    x_n_stft = x_stft + noise 
+                    x_n_stft_mag = torch.abs(x_n_stft).float().unsqueeze(1)
                     
-                    x_stft_hat, x_wav_hat = self.model(x_spectr)
-                    x_stft_hat_mag, x_stft_hat_phase = self._postprocess_spec2wav(x_stft_hat)
+                    x_stft_hat_stack = self.model(x_n_stft_mag, x_stft_mag)
+                    x_stft_hat = x_stft_hat_stack[:,:,-1]
+                    x_stft_hat_mag, x_stft_hat_phase = r2_to_mag_phase(x_stft_hat)
                     
-                    loss = mse(torch.angle(x_stft), x_stft_hat_phase)
+                    x_wav = self.model.compute_wav(c_to_r2(x_stft)).squeeze()
+                    x_wav_hat = self.model.compute_wav(x_stft_hat).squeeze()
+                    
+                    loss = self._compute_loss(x_stft_hat_stack, c_to_r2(x_stft))
                     train_loss += ((1./(n+1))*(loss-train_loss))
                     loss.backward()  
-                    self.optimizer.step()    
+                    self.optimizer.step()
                     
                     snr_metric = si_snr_metric(torch.abs(x_stft), x_stft_hat_mag)
-                    train_score += ((1./(n+1))*(snr_metric-train_score)) 
+                    train_snr_score += ((1./(n+1))*(snr_metric-train_snr_score)) 
+                    
+                    stoi_metric = stoi(x_wav.cpu().detach().numpy(), x_wav_hat.cpu().detach().numpy(), fs_sig = self.hprms.sr)
+                    train_stoi_score += ((1./(n+1))*(stoi_metric-train_stoi_score))
                     
                 elif args.task == "mel2wav":
                     # TODO: not implemented yet 
@@ -108,7 +124,7 @@ class Trainer:
                     raise ValueError(f"task must be one of [melspec2spec, spec2wav, mel2wav], \
                         received {args.task}")
                     
-                pbar.set_postfix_str(f'mse: {train_loss:.6f}, si-snr: {train_score:.3f}')
+                pbar.set_postfix_str(f'mse: {train_loss:.6f}, si-snr: {train_snr_score:.3f}, stoi: {train_stoi_score:.3f}')
                 
                 # if n == 20:
                 #     break
@@ -119,7 +135,7 @@ class Trainer:
                                                   task=args.task)
             
             # Update training state
-            self._update_training_state(train_loss, train_score, val_loss, val_score)
+            self._update_training_state(train_loss, train_snr_score, val_loss, val_score)
             
             # Save the best model
             if self.training_state["patience_epochs"] == 0:
@@ -135,7 +151,7 @@ class Trainer:
             plot_train_hist(self.experiment_dir)            
             
             print(f'Training loss:     {train_loss.item():.6f} \t| Validation Loss:   {val_loss.item():.6f}')
-            print(f'Training SI-SNR:   {train_score.item():.4f} dB \t| Validation SI-SNR: {val_score.item():.4f} dB')
+            print(f'Training SI-SNR:   {train_snr_score.item():.4f} dB \t| Validation SI-SNR: {val_score.item():.4f} dB')
             print(f'Epoch time: {int(((time()-start_epoch))//60)} min {int(((time()-start_epoch))%60)} s')
             print('_____________________________')
 
@@ -146,6 +162,27 @@ class Trainer:
         print('____________________________________________')
 
         return self.training_state
+    
+    def _create_noise(self, signal, max_nsr_db = 6):
+    
+        snr_db = max_nsr_db * torch.rand((1)) - max_nsr_db
+        snr = torch.pow(10, snr_db/10).to(self.hprms.device)
+
+        signal_power = torch.mean(torch.abs(signal) ** 2)
+        
+        noise_power = signal_power / snr
+        noise = torch.sqrt(noise_power) * torch.randn(signal.shape, dtype=torch.complex64, device=self.hprms.device)
+        
+        return noise
+    
+    def _compute_loss(self, x_stft_hat_stack, x_stft):
+        
+        loss = 0.
+        for n in range(x_stft_hat_stack.shape[2]):
+            x_stft_hat = x_stft_hat_stack[:,:,n]
+            loss += self.loss(x_stft_hat, x_stft)
+        loss /= x_stft_hat_stack.shape[2]
+        return loss.float()
     
     def eval_model(self,
                    model: torch.nn.Module, 
@@ -173,12 +210,12 @@ class Trainer:
                     test_score += ((1./(n+1))*(snr_metric-test_score))  
                 
                 elif task == "spec2wav":
-                    x_spectr = torch.abs(x_stft).float().unsqueeze(1)
+                    x_stft_mag = torch.abs(x_stft).float().unsqueeze(1)
                     
-                    x_stft_hat, x_wav_hat = self.model(x_spectr)
+                    x_stft_hat = self.model(x_stft_mag)
                     x_stft_hat_mag, x_stft_hat_phase = self._postprocess_spec2wav(x_stft_hat)
                     
-                    loss = mse(torch.angle(x_stft), x_stft_hat_phase)
+                    loss = self.loss(torch.angle(x_stft), x_stft_hat_phase)
                     test_loss += ((1./(n+1))*(loss-test_loss))
                     
                     snr_metric = si_snr_metric(torch.abs(x_stft), x_stft_hat_mag)
@@ -195,30 +232,6 @@ class Trainer:
         x_melspec_db_norm = torch.matmul(self.melfb, x_stftspec_db_norm).unsqueeze(1)
         
         return x_stftspec_db_norm, x_melspec_db_norm
-
-    def _preprocess_spec2wav(self, x_stft):
-        """
-        Takes complex valued x_stft and returns its real and imaginary parts and its spectrogram 
-
-        Args:
-            x_stft (torch.Tensor): torch.complex of shape [batch, n_stft, n_frames]
-
-        Returns:
-            x_stft (torch.Tensor): torch.float of shape [batch, 2, n_stft, n_frames] containing STFT of input
-            signal split into real and imaginary parts on axis=1 
-            x_spectr (torch.Tensor): torch.float of shape [batch, 1, n_stft, n_frames] containing the spectrogram
-            of input signal
-        """
-        x_spectr = torch.abs(x_stft).float().unsqueeze(1)
-        x_stft = torch.view_as_real(x_stft).float() # split real and imaginary parts on -1 axis
-        x_stft = x_stft.permute(0, 3, 1, 2)
-        
-        return x_stft, x_spectr
-
-    def _postprocess_spec2wav(self, x_stft_re_im):
-        x_mag = torch.sqrt(x_stft_re_im[:,0]**2 + x_stft_re_im[:,1]**2)
-        x_phase = torch.atan2(x_stft_re_im[:,0], x_stft_re_im[:,1])
-        return x_mag, x_phase    
     
     def _set_hparams(self, resume_training):
         
@@ -252,10 +265,10 @@ class Trainer:
         if not os.path.exists(self.experiment_weights_dir):
             os.mkdir(self.experiment_weights_dir) 
             
-    def _update_training_state(self, train_loss, train_score, val_loss, val_score):
+    def _update_training_state(self, train_loss, train_snr_score, val_loss, val_score):
             
             self.training_state["train_loss_hist"].append(train_loss.item())
-            self.training_state["train_score_hist"].append(train_score.item())
+            self.training_state["train_score_hist"].append(train_snr_score.item())
             self.training_state["val_loss_hist"].append(val_loss.item())
             self.training_state["val_score_hist"].append(val_score.item())
             

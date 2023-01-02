@@ -17,7 +17,7 @@ def create_hparams(model_name: str = None):   # training hparams
     elif model_name == "degli" or model_name == "degliblock":
         model_hparams = Namespace(hidden_channel = 16,
                                   kernel_size = 3,
-                                  n_degli_blocks = 10)
+                                  n_degli_blocks = 1)
     else:
         model_hparams = Namespace()
         
