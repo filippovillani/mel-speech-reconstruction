@@ -1,11 +1,12 @@
 '''
 Generate and save melspectrograms, stftspectrograms and wav as .npy files
 '''
+import os
+from argparse import Namespace
+
+import librosa
 import numpy as np
 import pandas as pd
-import librosa
-from argparse import Namespace
-import os
 import torch
 
 import config

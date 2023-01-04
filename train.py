@@ -4,18 +4,19 @@ import os
 from time import time
 
 import librosa
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
-import numpy as np
+from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
+from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 from tqdm import tqdm
-from pystoi import stoi
 
 import config
 from dataset import build_dataloader
 from metrics import mse, si_snr_metric
 from networks.build_model import build_model
-from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr,
-                              to_db, to_linear, compute_wav)
+from utils.audioutils import (compute_wav, denormalize_db_spectr,
+                              normalize_db_spectr, to_db, to_linear)
 from utils.plots import plot_train_hist
 from utils.utils import c_to_r2, r2_to_c
 
@@ -30,6 +31,9 @@ class Trainer:
                                                          n_mels = self.hprms.n_mels)).to(self.hprms.device)
         self.loss = torch.nn.L1Loss()
         # self.loss = torch.nn.MSELoss()
+        self.pesq = PerceptualEvaluationSpeechQuality(fs = self.hprms.sr, 
+                                                      mode= "wb")
+        self.stoi = ShortTimeObjectiveIntelligibility(fs = self.hprms.sr)
 
         if args.resume_training:
             # Load training state
@@ -72,6 +76,7 @@ class Trainer:
             train_loss = 0.
             train_snr_score = 0.
             train_stoi_score = 0.
+            train_pesq_score = 0.
             start_epoch = time()        
             pbar = tqdm(train_dl, desc=f'Epoch {self.training_state["epochs"]}', postfix='[]')
             
@@ -94,29 +99,24 @@ class Trainer:
                                 
                 elif args.task == "spec2wav":
                     x_stft_mag = torch.abs(x_stft).float().unsqueeze(1)
-                    noise = self._create_noise(x_stft)
-                    x_n_stft = x_stft + noise 
-                    x_n_stft_mag = torch.abs(x_n_stft).float().unsqueeze(1)
                     
-                    x_stft_hat_stack = self.model(x_n_stft_mag, x_stft_mag)
-                    x_stft_hat = r2_to_c(x_stft_hat_stack[:,:,-1])
+                    x_stft_hat_stack, x_stft_magreplaced = self.model(x_stft_mag)
+                    x_stft_hat = r2_to_c(x_stft_magreplaced)
                     
                     x_wav = compute_wav(x_stft, n_fft=self.hprms.n_fft).squeeze()
-                    x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze()
+                    x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze().detach()
                     
                     loss = self._compute_loss(r2_to_c(x_stft_hat_stack), x_stft)
                     train_loss += ((1./(n+1))*(loss-train_loss))
                     loss.backward()  
                     self.optimizer.step()
-                    
-                    if x_wav.dim() == 1:
-                        x_wav = x_wav.unsqueeze(0)
-                        x_wav_hat = x_wav_hat.unsqueeze(0)
-                        
-                    stoi_metric = np.mean([stoi(x_wav[b].cpu().detach().numpy(), 
-                                                x_wav_hat[b].cpu().detach().numpy(), 
-                                                fs_sig = self.hprms.sr) for b in range(x_wav.shape[0])])
+
+                    # Compute metrics
+                    stoi_metric = self.stoi(x_wav, x_wav_hat) 
                     train_stoi_score += ((1./(n+1))*(stoi_metric-train_stoi_score))
+
+                    pesq_metric = self.pesq(x_wav, x_wav_hat) 
+                    train_pesq_score += ((1./(n+1))*(pesq_metric-train_pesq_score))
                     
                 elif args.task == "mel2wav":
                     # TODO: not implemented yet 
@@ -127,9 +127,9 @@ class Trainer:
                     raise ValueError(f"task must be one of [melspec2spec, spec2wav, mel2wav], \
                         received {args.task}")
                     
-                pbar.set_postfix_str(f'mse: {train_loss:.6f}, stoi: {train_stoi_score:.3f}')
+                pbar.set_postfix_str(f'mse: {train_loss:.6f}, stoi: {train_stoi_score:.3f}, pesq: {train_pesq_score:.3f}')
                 
-                if n == 20:
+                if n == 200:
                     break
 
             # Evaluate on the validation set
@@ -217,9 +217,9 @@ class Trainer:
                 elif task == "spec2wav":
                     
                     x_stft_mag = torch.abs(x_stft).float().unsqueeze(1)
-                    
-                    x_stft_hat_stack = self.model(x_stft_mag, x_stft_mag)
-                    x_stft_hat = r2_to_c(x_stft_hat_stack[:,:,-1])
+                      
+                    x_stft_hat_stack, x_stft_magreplaced = self.model(x_stft_mag)
+                    x_stft_hat = r2_to_c(x_stft_magreplaced)
                     
                     x_wav = compute_wav(x_stft, n_fft=self.hprms.n_fft).squeeze()
                     x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze()
@@ -231,9 +231,8 @@ class Trainer:
                         x_wav = x_wav.unsqueeze(0)
                         x_wav_hat = x_wav_hat.unsqueeze(0)
                         
-                    stoi_metric = np.mean([stoi(x_wav[b].cpu().detach().numpy(), 
-                                                x_wav_hat[b].cpu().detach().numpy(), 
-                                                fs_sig = self.hprms.sr) for b in range(x_wav.shape[0])])
+                    stoi_metric = np.mean([self.stoi(x_wav[b].cpu().detach().numpy(), 
+                                                x_wav_hat[b].cpu().detach().numpy()) for b in range(x_wav.shape[0])])
                     test_score += ((1./(n+1))*(stoi_metric-test_score))
 
                 

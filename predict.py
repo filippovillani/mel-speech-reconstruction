@@ -1,16 +1,17 @@
-import torch
-import librosa
-import soundfile as sf
 import argparse
 import json
 
-from networks.build_model import build_model
+import librosa
+import soundfile as sf
+import torch
+
+import config
 from griffinlim import fast_griffin_lim
 from metrics import mse, si_snr_metric
+from networks.build_model import build_model
+from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr,
+                              open_audio, to_db, to_linear)
 from utils.plots import plot_prediction
-from utils.audioutils import open_audio, to_db, normalize_db_spectr, denormalize_db_spectr, to_linear, normalize_db_spectr
-import config
-
 
 
 def predict(args):

@@ -1,7 +1,9 @@
-import torch
-from torch.utils.data import Dataset, DataLoader
-from argparse import Namespace
 import os
+from argparse import Namespace
+
+import torch
+from torch.utils.data import DataLoader, Dataset
+
 
 def build_dataloader(hparams: Namespace,
                      data_dir: str,

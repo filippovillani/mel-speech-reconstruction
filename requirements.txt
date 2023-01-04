@@ -4,5 +4,7 @@ matplotlib==3.6.2
 pandas==1.5.2
 tqdm==4.64.1
 pystoi==0.3.3
---find-links https://download.pytorch.org/whl/torch_stable.html
+pesq==0.0.4
+torchmetrics==0.11.0
+ --find-links https://download.pytorch.org/whl/torch_stable.html
 torch==1.13.0+cu116

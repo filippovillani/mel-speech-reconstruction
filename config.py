@@ -1,10 +1,12 @@
-import os
-import numpy as np
-import random
-import torch
 import json
-from pathlib import Path
+import os
+import random
 from argparse import Namespace
+from pathlib import Path
+
+import numpy as np
+import torch
+
 
 def create_hparams(model_name: str = None):   # training hparams
     
@@ -16,7 +18,7 @@ def create_hparams(model_name: str = None):   # training hparams
                                   kernel_size = 3)
     elif model_name == "degli" or model_name == "degliblock":
         model_hparams = Namespace(hidden_channel = 32,
-                                  kernel_size = 3,
+                                  kernel_size = (3,3),
                                   n_degli_repetitions = 5)
     else:
         model_hparams = Namespace()
