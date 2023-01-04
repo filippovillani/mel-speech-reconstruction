@@ -6,6 +6,7 @@ from time import time
 import librosa
 import torch
 from torch.utils.data import DataLoader
+import numpy as np
 from tqdm import tqdm
 from pystoi import stoi
 
@@ -14,9 +15,9 @@ from dataset import build_dataloader
 from metrics import mse, si_snr_metric
 from networks.build_model import build_model
 from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr,
-                              to_db, to_linear)
+                              to_db, to_linear, compute_wav)
 from utils.plots import plot_train_hist
-from utils.utils import c_to_r2, r2_to_mag_phase
+from utils.utils import c_to_r2, r2_to_c
 
 
 class Trainer:
@@ -98,21 +99,23 @@ class Trainer:
                     x_n_stft_mag = torch.abs(x_n_stft).float().unsqueeze(1)
                     
                     x_stft_hat_stack = self.model(x_n_stft_mag, x_stft_mag)
-                    x_stft_hat = x_stft_hat_stack[:,:,-1]
-                    x_stft_hat_mag, x_stft_hat_phase = r2_to_mag_phase(x_stft_hat)
+                    x_stft_hat = r2_to_c(x_stft_hat_stack[:,:,-1])
                     
-                    x_wav = self.model.compute_wav(c_to_r2(x_stft)).squeeze()
-                    x_wav_hat = self.model.compute_wav(x_stft_hat).squeeze()
+                    x_wav = compute_wav(x_stft, n_fft=self.hprms.n_fft).squeeze()
+                    x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze()
                     
-                    loss = self._compute_loss(x_stft_hat_stack, c_to_r2(x_stft))
+                    loss = self._compute_loss(r2_to_c(x_stft_hat_stack), x_stft)
                     train_loss += ((1./(n+1))*(loss-train_loss))
                     loss.backward()  
                     self.optimizer.step()
                     
-                    snr_metric = si_snr_metric(torch.abs(x_stft), x_stft_hat_mag)
-                    train_snr_score += ((1./(n+1))*(snr_metric-train_snr_score)) 
-                    
-                    stoi_metric = stoi(x_wav.cpu().detach().numpy(), x_wav_hat.cpu().detach().numpy(), fs_sig = self.hprms.sr)
+                    if x_wav.dim() == 1:
+                        x_wav = x_wav.unsqueeze(0)
+                        x_wav_hat = x_wav_hat.unsqueeze(0)
+                        
+                    stoi_metric = np.mean([stoi(x_wav[b].cpu().detach().numpy(), 
+                                                x_wav_hat[b].cpu().detach().numpy(), 
+                                                fs_sig = self.hprms.sr) for b in range(x_wav.shape[0])])
                     train_stoi_score += ((1./(n+1))*(stoi_metric-train_stoi_score))
                     
                 elif args.task == "mel2wav":
@@ -124,18 +127,18 @@ class Trainer:
                     raise ValueError(f"task must be one of [melspec2spec, spec2wav, mel2wav], \
                         received {args.task}")
                     
-                pbar.set_postfix_str(f'mse: {train_loss:.6f}, si-snr: {train_snr_score:.3f}, stoi: {train_stoi_score:.3f}')
+                pbar.set_postfix_str(f'mse: {train_loss:.6f}, stoi: {train_stoi_score:.3f}')
                 
-                # if n == 20:
-                #     break
+                if n == 20:
+                    break
 
             # Evaluate on the validation set
-            val_score, val_loss = self.eval_model(model=self.model, 
+            val_stoi_score, val_loss = self.eval_model(model=self.model, 
                                                   test_dl=val_dl,
                                                   task=args.task)
             
             # Update training state
-            self._update_training_state(train_loss, train_snr_score, val_loss, val_score)
+            self._update_training_state(train_loss, train_stoi_score, val_loss, val_stoi_score)
             
             # Save the best model
             if self.training_state["patience_epochs"] == 0:
@@ -151,14 +154,14 @@ class Trainer:
             plot_train_hist(self.experiment_dir)            
             
             print(f'Training loss:     {train_loss.item():.6f} \t| Validation Loss:   {val_loss.item():.6f}')
-            print(f'Training SI-SNR:   {train_snr_score.item():.4f} dB \t| Validation SI-SNR: {val_score.item():.4f} dB')
+            print(f'Training stoi:   {train_stoi_score.item():.4f} \t| Validation stoi: {val_stoi_score.item():.4f}')
             print(f'Epoch time: {int(((time()-start_epoch))//60)} min {int(((time()-start_epoch))%60)} s')
             print('_____________________________')
 
         print('____________________________________________')
         print('Best epoch was Epoch ', self.training_state["best_epoch"])    
         print(f'Training loss:     {self.training_state["train_loss_hist"][self.training_state["best_epoch"]-1]:.6f} \t| Validation Loss:   {self.training_state["val_loss_hist"][self.training_state["best_epoch"]-1]}')
-        print(f'Training SI-SNR:   {self.training_state["train_score_hist"][self.training_state["best_epoch"]-1]:.4f} dB \t| Validation SI-SNR: {self.training_state["best_val_score"]} dB')
+        print(f'Training metric:   {self.training_state["train_score_hist"][self.training_state["best_epoch"]-1]:.4f} \t| Validation metric: {self.training_state["best_val_score"]}')
         print('____________________________________________')
 
         return self.training_state
@@ -178,11 +181,13 @@ class Trainer:
     def _compute_loss(self, x_stft_hat_stack, x_stft):
         
         loss = 0.
-        for n in range(x_stft_hat_stack.shape[2]):
-            x_stft_hat = x_stft_hat_stack[:,:,n]
-            loss += self.loss(x_stft_hat, x_stft)
-        loss /= x_stft_hat_stack.shape[2]
-        return loss.float()
+        scale_factor = 0.
+        for n in range(x_stft_hat_stack.shape[1]):
+            x_stft_hat = x_stft_hat_stack[:,n]
+            scale_factor += 1. / (self.hprms.n_degli_repetitions - n)
+            loss += (self.loss(x_stft_hat, x_stft) / (self.hprms.n_degli_repetitions - n))
+        loss /= scale_factor
+        return loss
     
     def eval_model(self,
                    model: torch.nn.Module, 
@@ -210,20 +215,31 @@ class Trainer:
                     test_score += ((1./(n+1))*(snr_metric-test_score))  
                 
                 elif task == "spec2wav":
+                    
                     x_stft_mag = torch.abs(x_stft).float().unsqueeze(1)
                     
-                    x_stft_hat = self.model(x_stft_mag)
-                    x_stft_hat_mag, x_stft_hat_phase = self._postprocess_spec2wav(x_stft_hat)
+                    x_stft_hat_stack = self.model(x_stft_mag, x_stft_mag)
+                    x_stft_hat = r2_to_c(x_stft_hat_stack[:,:,-1])
                     
-                    loss = self.loss(torch.angle(x_stft), x_stft_hat_phase)
+                    x_wav = compute_wav(x_stft, n_fft=self.hprms.n_fft).squeeze()
+                    x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze()
+                    
+                    loss = self._compute_loss(r2_to_c(x_stft_hat_stack), x_stft)
                     test_loss += ((1./(n+1))*(loss-test_loss))
                     
-                    snr_metric = si_snr_metric(torch.abs(x_stft), x_stft_hat_mag)
-                    test_score += ((1./(n+1))*(snr_metric-test_score)) 
+                    if x_wav.dim() == 1:
+                        x_wav = x_wav.unsqueeze(0)
+                        x_wav_hat = x_wav_hat.unsqueeze(0)
+                        
+                    stoi_metric = np.mean([stoi(x_wav[b].cpu().detach().numpy(), 
+                                                x_wav_hat[b].cpu().detach().numpy(), 
+                                                fs_sig = self.hprms.sr) for b in range(x_wav.shape[0])])
+                    test_score += ((1./(n+1))*(stoi_metric-test_score))
+
                 
                 pbar.set_postfix_str(f'mse: {test_loss:.6f}, si-snr: {test_score:.3f}')  
-                # if n == 20:
-                #     break    
+                if n == 20:
+                    break    
         return test_score, test_loss
 
     def _preprocess_mel2spec(self, x_stft):
@@ -265,22 +281,27 @@ class Trainer:
         if not os.path.exists(self.experiment_weights_dir):
             os.mkdir(self.experiment_weights_dir) 
             
-    def _update_training_state(self, train_loss, train_snr_score, val_loss, val_score):
+    def _update_training_state(self, train_loss, train_snr_score, val_loss, val_stoi_score):
             
+            if isinstance(train_snr_score, torch.Tensor):
+                train_snr_score = train_snr_score.item()
+            if isinstance(train_snr_score, torch.Tensor):
+                val_stoi_score = val_stoi_score.item()
+                
             self.training_state["train_loss_hist"].append(train_loss.item())
-            self.training_state["train_score_hist"].append(train_snr_score.item())
+            self.training_state["train_score_hist"].append(train_snr_score)
             self.training_state["val_loss_hist"].append(val_loss.item())
-            self.training_state["val_score_hist"].append(val_score.item())
+            self.training_state["val_score_hist"].append(val_stoi_score)
             
-            if val_score <= self.training_state["best_val_score"]:
+            if val_stoi_score <= self.training_state["best_val_score"]:
                 self.training_state["patience_epochs"] += 1
-                print(f'\nBest epoch was Epoch {self.training_state["best_epoch"]}: Validation SI-SNR = {self.training_state["best_val_score"]} dB')
+                print(f'\nBest epoch was Epoch {self.training_state["best_epoch"]}: Validation metric = {self.training_state["best_val_score"]}')
             else:
                 self.training_state["patience_epochs"] = 0
-                self.training_state["best_val_score"] = val_score.item()
+                self.training_state["best_val_score"] = val_stoi_score.item()
                 self.training_state["best_val_loss"] = val_loss.item()
                 self.training_state["best_epoch"] = self.training_state["epochs"]
-                print("\nSI-SNR on validation set improved")
+                print("\nMetric on validation set improved")
 
 
 def main(args):

@@ -15,7 +15,8 @@ def build_dataloader(hparams: Namespace,
     dataloader = DataLoader(ds, 
                             batch_size = hparams.batch_size,
                             num_workers = hparams.num_workers, 
-                            shuffle=shuffle)
+                            shuffle = shuffle,
+                            drop_last = True)
     return dataloader
     
     

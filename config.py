@@ -15,9 +15,9 @@ def create_hparams(model_name: str = None):   # training hparams
         model_hparams = Namespace(conv_channels = [32, 64],
                                   kernel_size = 3)
     elif model_name == "degli" or model_name == "degliblock":
-        model_hparams = Namespace(hidden_channel = 16,
+        model_hparams = Namespace(hidden_channel = 32,
                                   kernel_size = 3,
-                                  n_degli_blocks = 1)
+                                  n_degli_repetitions = 5)
     else:
         model_hparams = Namespace()
         

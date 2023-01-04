@@ -2,6 +2,12 @@ import numpy as np
 import torch
 import librosa 
 
+def compute_wav(x_n_stft, n_fft):
+    
+    x_wav_hat = torch.stack([torch.istft(x_n_stft[b], n_fft=n_fft) for b in range(x_n_stft.shape[0])], dim=0)
+    x_wav_hat = min_max_normalization(x_wav_hat)
+    return x_wav_hat
+    
 def to_db(spectrogram):
     spec_max = torch.max(spectrogram)
     spec_db = torch.clamp(20 * torch.log10(spectrogram / spec_max + 1e-12), min=-80, max=0)
@@ -40,3 +46,9 @@ def open_audio(audio_path, hparams):
     audio = (audio - audio.mean()) / (audio.std() + 1e-12)
     return audio
     
+def min_max_normalization(x_wav):
+    if isinstance(x_wav, torch.Tensor):
+        x_wav = (x_wav - torch.min(x_wav)) / (torch.max(x_wav) - torch.min(x_wav))
+    if isinstance(x_wav, np.ndarray):
+        x_wav = (x_wav - np.min(x_wav)) / (np.max(x_wav) - np.min(x_wav))
+    return x_wav

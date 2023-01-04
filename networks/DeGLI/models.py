@@ -10,7 +10,6 @@ class DeGLI(nn.Module):
         super(DeGLI, self).__init__()
         self.hprms = hparams
         self.device = hparams.device
-        self.degliblocks = nn.ModuleList([DeGLIBlock(hparams) for _ in range(hparams.n_degli_blocks)])
         self.degliblock = DeGLIBlock(hparams)
         
     def forward(self, x_n_stft_mag, x_stft_mag):
@@ -21,21 +20,25 @@ class DeGLI(nn.Module):
             x_stft_mag (torch.Tensor): clean STFT spectrogram
         Returns:
             x_stft_hat_stack (torch.Tensor): stack of the output for each iteration of the algorithm
-            [batch, 2, n_degli_blocks, n_stft, n_frames]
+            [batch, 2, n_degli_repetitions, n_stft, n_frames]
         """
         x_stft_hat = self._initialize_stft(x_n_stft_mag)
 
-        x_stft_hat_stack = torch.stack([self.degliblock(x_stft_hat, x_stft_mag) for _ in range(self.hprms.n_degli_blocks)], 
+        # for _ in range(self.hprms.n_degli_repetitions):
+        x_stft_hat_stack = torch.stack([(x_stft_hat := self.degliblock(x_stft_hat, x_stft_mag)) for _ in range(self.hprms.n_degli_repetitions)], 
                                     dim=2)
-        x_stft_hat_stack = self.degliblock._amplitude_projection(x_stft_hat_stack, x_stft_mag)
+
+        x_stft_hat_stack = self._magnitude_projection(x_stft_hat_stack, x_stft_mag)
         
         return x_stft_hat_stack
     
-    def compute_wav(self, x_n_stft):
+    def _magnitude_projection(self, x_hat_stft, x_stft_mag):
         
-        x_wav_hat = torch.istft(r2_to_c(x_n_stft), n_fft=self.hprms.n_fft)
-        x_wav_hat = (x_wav_hat - torch.min(x_wav_hat)) / (torch.max(x_wav_hat) - torch.min(x_wav_hat))
-        return x_wav_hat
+        x_stft_mag = x_stft_mag.unsqueeze(2).expand(-1,-1,x_hat_stft.shape[2],-1,-1)
+        phase = torch.atan2(x_hat_stft[:,1], x_hat_stft[:,0]).unsqueeze(1)
+        x_amp_proj = torch.cat([x_stft_mag * torch.cos(phase), x_stft_mag * torch.sin(phase)], axis=1)
+            
+        return x_amp_proj
     
     def _initialize_stft(self, x_stft_mag):
         # TODO: implement different phase initialization
@@ -66,18 +69,18 @@ class DeGLIBlock(nn.Module):
         Returns:
             _type_: _description_
         """
-            
-        x_amp_proj = self._amplitude_projection(x_hat_stft, x_stft_mag)
+        
+        x_amp_proj = self._magnitude_projection(x_hat_stft, x_stft_mag)
         x_cons_proj = self._consistency_projection(x_amp_proj)
         x_est_residual = self.convdnn(x_hat_stft, x_amp_proj, x_cons_proj)
         
-        x_stft_hat = x_cons_proj - x_est_residual
+        x_hat_stft = x_cons_proj - x_est_residual
         
-        return x_stft_hat
+        return x_hat_stft
         
-    def _amplitude_projection(self, x_hat_stft, x_stft_mag):
+    def _magnitude_projection(self, x_hat_stft, x_stft_mag):
         
-        phase = torch.atan2(x_hat_stft[:,0], x_hat_stft[:,1]).unsqueeze(1)
+        phase = torch.atan2(x_hat_stft[:,1], x_hat_stft[:,0]).unsqueeze(1)
         x_amp_proj = torch.cat([x_stft_mag * torch.cos(phase), x_stft_mag * torch.sin(phase)], axis=1)
             
         return x_amp_proj
@@ -85,7 +88,7 @@ class DeGLIBlock(nn.Module):
     def _consistency_projection(self, x_amp_proj):
 
         x_cons_proj = torch.istft(r2_to_c(x_amp_proj), n_fft=self.hprms.n_fft)    # G+ x
-        x_cons_proj = torch.stft(x_cons_proj, n_fft=self.hprms.n_fft).permute(0,3,1,2) # G G+ x 
+        x_cons_proj = torch.stft(x_cons_proj, n_fft=self.hprms.n_fft, return_complex=False).permute(0,3,1,2) # G G+ x 
        
         return x_cons_proj.float()
     
@@ -95,6 +98,5 @@ if __name__ == "__main__":
                         hidden_channel = 32)
     x_stft_mag = torch.load(r'D:\GitHub_Portfolio\PhaseReconstruction\data\spectrograms\validation\SX445.WAV.wav.pt')
     x_stft_mag = x_stft_mag.unsqueeze(0).unsqueeze(0).float()
-    model = DeGLIBlock(hparams).float()
+    model = DeGLI(hparams).float()
     x_n_stft = model(x_stft_mag)
-    x_n_stft = model(x_stft_mag, x_n_stft)
