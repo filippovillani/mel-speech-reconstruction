@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 import config
 from dataset import build_dataloader
-from metrics import mse, si_snr_metric
+from metrics import mse, si_sdr_metric
 from networks.build_model import build_model
 from utils.audioutils import (compute_wav, denormalize_db_spectr,
                               normalize_db_spectr, to_db, to_linear)
@@ -74,7 +74,7 @@ class Trainer:
             
             self.model.train()
             train_loss = 0.
-            train_snr_score = 0.
+            train_sdr_score = 0.
             train_stoi_score = 0.
             train_pesq_score = 0.
             start_epoch = time()        
@@ -93,9 +93,9 @@ class Trainer:
                     loss.backward()  
                     self.optimizer.step()    
                     
-                    snr_metric = si_snr_metric(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
+                    sdr_metric = si_sdr_metric(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
                                                to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
-                    train_snr_score += ((1./(n+1))*(snr_metric-train_snr_score))                                    
+                    train_sdr_score += ((1./(n+1))*(sdr_metric-train_sdr_score))                                    
                                 
                 elif args.task == "spec2wav":
                     x_stft_mag = torch.abs(x_stft).float().unsqueeze(1)
@@ -129,7 +129,7 @@ class Trainer:
                     
                 pbar.set_postfix_str(f'mse: {train_loss:.6f}, stoi: {train_stoi_score:.3f}, pesq: {train_pesq_score:.3f}')
                 
-                if n == 200:
+                if n == 20:
                     break
 
             # Evaluate on the validation set
@@ -168,12 +168,12 @@ class Trainer:
     
     def _create_noise(self, signal, max_nsr_db = 6):
     
-        snr_db = max_nsr_db * torch.rand((1)) - max_nsr_db
-        snr = torch.pow(10, snr_db/10).to(self.hprms.device)
+        sdr_db = max_nsr_db * torch.rand((1)) - max_nsr_db
+        sdr = torch.pow(10, sdr_db/10).to(self.hprms.device)
 
         signal_power = torch.mean(torch.abs(signal) ** 2)
         
-        noise_power = signal_power / snr
+        noise_power = signal_power / sdr
         noise = torch.sqrt(noise_power) * torch.randn(signal.shape, dtype=torch.complex64, device=self.hprms.device)
         
         return noise
@@ -210,9 +210,9 @@ class Trainer:
                     loss = mse(x_stftspec_db_norm, x_stftspec_hat_db_norm)
                     test_loss += ((1./(n+1))*(loss-test_loss))
                     
-                    snr_metric = si_snr_metric(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
+                    sdr_metric = si_sdr_metric(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
                                             to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
-                    test_score += ((1./(n+1))*(snr_metric-test_score))  
+                    test_score += ((1./(n+1))*(sdr_metric-test_score))  
                 
                 elif task == "spec2wav":
                     
@@ -222,7 +222,7 @@ class Trainer:
                     x_stft_hat = r2_to_c(x_stft_magreplaced)
                     
                     x_wav = compute_wav(x_stft, n_fft=self.hprms.n_fft).squeeze()
-                    x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze()
+                    x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze().detach()
                     
                     loss = self._compute_loss(r2_to_c(x_stft_hat_stack), x_stft)
                     test_loss += ((1./(n+1))*(loss-test_loss))
@@ -231,12 +231,11 @@ class Trainer:
                         x_wav = x_wav.unsqueeze(0)
                         x_wav_hat = x_wav_hat.unsqueeze(0)
                         
-                    stoi_metric = np.mean([self.stoi(x_wav[b].cpu().detach().numpy(), 
-                                                x_wav_hat[b].cpu().detach().numpy()) for b in range(x_wav.shape[0])])
+                    stoi_metric = self.stoi(x_wav, x_wav_hat) 
                     test_score += ((1./(n+1))*(stoi_metric-test_score))
 
                 
-                pbar.set_postfix_str(f'mse: {test_loss:.6f}, si-snr: {test_score:.3f}')  
+                pbar.set_postfix_str(f'mse: {test_loss:.6f}, si-sdr: {test_score:.3f}')  
                 if n == 20:
                     break    
         return test_score, test_loss
@@ -280,16 +279,20 @@ class Trainer:
         if not os.path.exists(self.experiment_weights_dir):
             os.mkdir(self.experiment_weights_dir) 
             
-    def _update_training_state(self, train_loss, train_snr_score, val_loss, val_stoi_score):
+    def _update_training_state(self, train_loss, train_sdr_score, val_loss, val_stoi_score):
             
-            if isinstance(train_snr_score, torch.Tensor):
-                train_snr_score = train_snr_score.item()
-            if isinstance(train_snr_score, torch.Tensor):
+            if isinstance(train_loss, torch.Tensor):
+                train_loss = train_loss.item()
+            if isinstance(train_sdr_score, torch.Tensor):
+                train_sdr_score = train_sdr_score.item()
+            if isinstance(val_loss, torch.Tensor):
+                val_loss = val_loss.item()
+            if isinstance(val_stoi_score, torch.Tensor):
                 val_stoi_score = val_stoi_score.item()
                 
-            self.training_state["train_loss_hist"].append(train_loss.item())
-            self.training_state["train_score_hist"].append(train_snr_score)
-            self.training_state["val_loss_hist"].append(val_loss.item())
+            self.training_state["train_loss_hist"].append(train_loss)
+            self.training_state["train_score_hist"].append(train_sdr_score)
+            self.training_state["val_loss_hist"].append(val_loss)
             self.training_state["val_score_hist"].append(val_stoi_score)
             
             if val_stoi_score <= self.training_state["best_val_score"]:
@@ -297,8 +300,8 @@ class Trainer:
                 print(f'\nBest epoch was Epoch {self.training_state["best_epoch"]}: Validation metric = {self.training_state["best_val_score"]}')
             else:
                 self.training_state["patience_epochs"] = 0
-                self.training_state["best_val_score"] = val_stoi_score.item()
-                self.training_state["best_val_loss"] = val_loss.item()
+                self.training_state["best_val_score"] = val_stoi_score
+                self.training_state["best_val_loss"] = val_loss
                 self.training_state["best_epoch"] = self.training_state["epochs"]
                 print("\nMetric on validation set improved")
 

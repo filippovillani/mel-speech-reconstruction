@@ -2,7 +2,7 @@ import torch
 from tqdm import tqdm
 from pystoi import stoi
 
-from metrics import si_snr_metric
+from metrics import si_sdr_metric
 from utils.audioutils import min_max_normalization
 from utils.utils import r2_to_mag_phase
 from griffinlim import fast_griffin_lim, griffin_lim_base
@@ -13,7 +13,7 @@ hparams = config.create_hparams()
 test_dl = build_dataloader(hparams, config.DATA_DIR, "test")
 
 stoi_score = 0.
-snr_score = 0.
+sdr_score = 0.
 pbar = tqdm(test_dl, desc=f'Evaluation', postfix='[]')
 with torch.no_grad():
     for n, batch in enumerate(pbar):
@@ -24,4 +24,4 @@ with torch.no_grad():
         stoi_metric = stoi(x_wav, x_wav_hat, fs_sig = hparams.sr)
         stoi_score += ((1./(n+1))*(stoi_metric-stoi_score))
 
-        pbar.set_postfix_str(f'stoi: {stoi_score:.5f}, snr: {snr_score:.5f}')  
+        pbar.set_postfix_str(f'stoi: {stoi_score:.5f}, sdr: {sdr_score:.5f}')  

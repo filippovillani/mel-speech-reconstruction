@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import soundfile as sf
 
-from metrics import si_snr_metric
+from metrics import si_sdr_metric
 from utils.audioutils import min_max_normalization
 
 
@@ -30,19 +30,19 @@ def griffin_lim_base(spectrogram: np.ndarray,
         raise ValueError("init must be 'zeros' or 'random'")
     
     X = spectrogram * np.exp(1j * X_init_phase)
-    snr_hist = []
+    sdr_hist = []
     for n in range(n_iter):
         X_hat = librosa.istft(X, n_fft=n_fft)    # G+ cn
         X_hat = librosa.stft(X_hat, n_fft=n_fft) # G G+ cn  
         X_phase = np.angle(X_hat) 
         X = spectrogram * np.exp(1j * X_phase)   # Pc1(Pc2(cn-1))  
         if eval and n>0:
-            snr_hist.append(si_snr_metric(spectrogram, np.abs(X_hat)))
+            sdr_hist.append(si_sdr_metric(spectrogram, np.abs(X_hat)))
     
     x = librosa.istft(X)
     x = min_max_normalization(x)
     
-    return x, snr_hist
+    return x, sdr_hist
 
 
 def fast_griffin_lim(spectrogram: np.ndarray,
@@ -66,13 +66,13 @@ def fast_griffin_lim(spectrogram: np.ndarray,
     prev_proj_phase = np.angle(prev_proj) 
     prev_proj = spectrogram * np.exp(1j * prev_proj_phase) 
     
-    snr_hist = []
+    sdr_hist = []
     for n in range(n_iter+1):
         curr_proj = librosa.istft(X, n_fft=n_fft)    # G+ cn            
         curr_proj = librosa.stft(curr_proj, n_fft=n_fft) # G G+ cn  
           
         if eval and n>0:
-            snr_hist.append(si_snr_metric(spectrogram, np.abs(curr_proj)))
+            sdr_hist.append(si_sdr_metric(spectrogram, np.abs(curr_proj)))
         
         curr_proj_phase = np.angle(curr_proj) 
         curr_proj = spectrogram * np.exp(1j * curr_proj_phase)   # Pc1(Pc2(cn-1))  
@@ -83,4 +83,4 @@ def fast_griffin_lim(spectrogram: np.ndarray,
     x = librosa.istft(X, n_fft=n_fft)
     x = min_max_normalization(x)
 
-    return x, snr_hist
+    return x, sdr_hist

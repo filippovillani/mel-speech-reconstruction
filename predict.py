@@ -7,7 +7,7 @@ import torch
 
 import config
 from griffinlim import fast_griffin_lim
-from metrics import mse, si_snr_metric
+from metrics import mse, si_sdr_metric
 from networks.build_model import build_model
 from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr,
                               open_audio, to_db, to_linear)
@@ -67,8 +67,8 @@ def predict(args):
                     prediction_img_path)
     
     metrics = {"mse": float(mse(stftspec_db_norm, stftspec_hat_db_norm)),
-               "si-snr": float(si_snr_metric(stftspec_db_norm, stftspec_hat_db_norm)),
-               "si-snr (after gla)": float(si_snr_metric(stftspec_db_norm, stftspec_gla_db_norm))}
+               "si-sdr": float(si_sdr_metric(stftspec_db_norm, stftspec_hat_db_norm)),
+               "si-sdr (after gla)": float(si_sdr_metric(stftspec_db_norm, stftspec_gla_db_norm))}
     
     with open(metrics_path, "w") as fp:
         json.dump(metrics, fp, indent=4)

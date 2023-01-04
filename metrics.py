@@ -5,7 +5,7 @@ def mse(s_target: torch.Tensor,
     error = s_target - s_hat
     return torch.mean(torch.square(error))
 
-def si_snr_metric(s_target: torch.Tensor,
+def si_sdr_metric(s_target: torch.Tensor,
                    s_hat: torch.Tensor)->torch.Tensor: 
     """
     Compute the Scale-Invariant Signal to Noise Ratio on the STFT magnitude,
@@ -16,7 +16,7 @@ def si_snr_metric(s_target: torch.Tensor,
         s_hat (torch.Tensor): spectrogram of reconstructed signal
 
     Returns:
-        snr (float): SI-SNR
+        sdr (float): SI-sdr
     """
     # Zero-mean normalization
     s_hat = (s_hat - torch.mean(s_hat))
@@ -26,9 +26,9 @@ def si_snr_metric(s_target: torch.Tensor,
                          torch.sum(torch.pow(s_target, 2)) + 1e-12)
     
     e_noise = s_hat - s_target
-    SI_SNR_linear = torch.divide(torch.sum(torch.pow(s_target, 2)), torch.sum(torch.pow(e_noise, 2))  + 1e-12)
-    SI_SNR = torch.mul(torch.log10(SI_SNR_linear), 10.)
-    return SI_SNR 
+    SI_SDR_linear = torch.divide(torch.sum(torch.pow(s_target, 2)), torch.sum(torch.pow(e_noise, 2))  + 1e-12)
+    SI_SDR = torch.mul(torch.log10(SI_SDR_linear), 10.)
+    return SI_SDR 
 
 def si_nsr_loss(enhanced_speech: torch.Tensor, 
                 clean_speech: torch.Tensor)->torch.Tensor:

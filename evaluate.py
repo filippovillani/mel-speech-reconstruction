@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 import config
 from dataset import build_dataloader
-from metrics import mse, si_snr_metric
+from metrics import mse, si_sdr_metric
 from networks.build_model import build_model
 from train import Trainer
 from utils.audioutils import denormalize_db_spectr, to_linear
@@ -35,7 +35,7 @@ def eval_librosa(hparams: Namespace,
         loss = mse(torch.as_tensor(stftspec_hat_db_norm), stftspec_db_norm)
         test_loss += ((1./(n+1))*(loss-test_loss))
                         
-        score = si_snr_metric(to_linear(denormalize_db_spectr(torch.as_tensor(stftspec_hat_db_norm))), 
+        score = si_sdr_metric(to_linear(denormalize_db_spectr(torch.as_tensor(stftspec_hat_db_norm))), 
                                 to_linear(denormalize_db_spectr(stftspec_db_norm)))
         test_score += ((1./(n+1))*(score-test_score))
 
@@ -69,7 +69,7 @@ def main(args):
         raise ValueError(f'model_name must be one of ["unet", "librosa", "convpinv", "pinv", "degli"], \
                          received: {args.model_name}')
     test_metrics = {"mse": float(test_loss),
-                    "si-snr": float(test_score)}
+                    "si-sdr": float(test_score)}
         
     with open(test_metrics_path, "w") as fp:
         json.dump(test_metrics, fp, indent=4)
