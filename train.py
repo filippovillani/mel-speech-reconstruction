@@ -58,10 +58,8 @@ class Trainer:
                                    "best_epoch": 0,
                                    "best_val_loss": 9999,
                                    "best_val_score": 0,
-                                   "train_loss_hist": [],
-                                   "train_score_hist": [],
-                                   "val_loss_hist": [],
-                                   "val_score_hist": []} 
+                                   "train_hist": {},
+                                   "val_hist": {}} 
                
     
     def train(self, train_dl, val_dl):
@@ -76,10 +74,10 @@ class Trainer:
             print(f'\n§ Train Epoch: {self.training_state["epochs"]}\n')
             
             self.model.train()
-            train_loss = 0.
-            train_sdr_score = 0.
-            train_stoi_score = 0.
-            train_pesq_score = 0.
+            train_scores = {"loss": 0.,
+                            "sdr": 0.,
+                            "stoi": 0.,
+                            "pesq": 0.}
             start_epoch = time()        
             pbar = tqdm(train_dl, desc=f'Epoch {self.training_state["epochs"]}', postfix='[]')
             
@@ -92,13 +90,13 @@ class Trainer:
                     x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze()
                     
                     loss = mse(x_stftspec_db_norm, x_stftspec_hat_db_norm)
-                    train_loss += ((1./(n+1))*(loss-train_loss))
+                    train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
                     loss.backward()  
                     self.optimizer.step()    
                     
                     sdr_metric = si_sdr_metric(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
                                                to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
-                    train_sdr_score += ((1./(n+1))*(sdr_metric-train_sdr_score))                                    
+                    train_scores["sdr"] += ((1./(n+1))*(sdr_metric-train_scores["sdr"]))  
                                 
                 elif args.task == "spec2wav":
                     x_stft_mag = torch.abs(x_stft).float().unsqueeze(1)
@@ -110,16 +108,16 @@ class Trainer:
                     x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze().detach()
                     
                     loss = self._compute_loss(r2_to_c(x_stft_hat_stack), x_stft)
-                    train_loss += ((1./(n+1))*(loss-train_loss))
+                    train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
                     loss.backward()  
                     self.optimizer.step()
 
                     # Compute metrics
                     stoi_metric = self.stoi(x_wav, x_wav_hat) 
-                    train_stoi_score += ((1./(n+1))*(stoi_metric-train_stoi_score))
+                    train_scores["stoi"] += ((1./(n+1))*(stoi_metric-train_scores["stoi"]))
 
                     pesq_metric = self.pesq(x_wav, x_wav_hat) 
-                    train_pesq_score += ((1./(n+1))*(pesq_metric-train_pesq_score))
+                    train_scores["pesq"]  += ((1./(n+1))*(pesq_metric-train_scores["pesq"]))
                     
                 elif args.task == "mel2wav":
                     # TODO: not implemented yet 
@@ -129,19 +127,19 @@ class Trainer:
                 else:
                     raise ValueError(f"task must be one of [melspec2spec, spec2wav, mel2wav], \
                         received {args.task}")
-                    
-                pbar.set_postfix_str(f'mse: {train_loss:.6f}, stoi: {train_stoi_score:.3f}, pesq: {train_pesq_score:.3f}')
+                scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
+                pbar.set_postfix_str(scores_to_print)
                 
-                if n == 50:
+                if n == 5:
                     break
 
             # Evaluate on the validation set
-            val_stoi_score, val_loss = self.eval_model(model=self.model, 
-                                                  test_dl=val_dl,
-                                                  task=args.task)
-            self.lr_sched.step(val_loss)
+            val_scores = self.eval_model(model = self.model, 
+                                         test_dl = val_dl,
+                                         task = args.task)
+            self.lr_sched.step(val_scores['loss'])
             # Update training state
-            self._update_training_state(train_loss, train_stoi_score, val_loss, val_stoi_score)
+            self._update_training_state(train_scores, val_scores)
             
             # Save the best model
             if self.training_state["patience_epochs"] == 0:
@@ -156,16 +154,13 @@ class Trainer:
             
             # Save plot of train history
             plot_train_hist(self.experiment_dir)            
-            
-            print(f'Training loss:     {train_loss.item():.6f} \t| Validation Loss:   {val_loss.item():.6f}')
-            print(f'Training stoi:   {train_stoi_score.item():.4f} \t| Validation stoi: {val_stoi_score.item():.4f}')
+
             print(f'Epoch time: {int(((time()-start_epoch))//60)} min {int(((time()-start_epoch))%60)} s')
             print('_____________________________')
 
         print('____________________________________________')
         print('Best epoch was Epoch ', self.training_state["best_epoch"])    
-        print(f'Training loss:     {self.training_state["train_loss_hist"][self.training_state["best_epoch"]-1]:.6f} \t| Validation Loss:   {self.training_state["val_loss_hist"][self.training_state["best_epoch"]-1]}')
-        print(f'Training metric:   {self.training_state["train_score_hist"][self.training_state["best_epoch"]-1]:.4f} \t| Validation metric: {self.training_state["best_val_score"]}')
+        print(f'Training loss:     {self.training_state["train_hist"]["loss"][self.training_state["best_epoch"]-1]:.6f} \t| Validation Loss:   {self.training_state["val_hist"]["loss"][self.training_state["best_epoch"]-1]}')
         print('____________________________________________')
 
         return self.training_state
@@ -200,8 +195,10 @@ class Trainer:
 
         model.eval()
 
-        test_score = 0.
-        test_loss = 0.
+        test_scores = {"loss": 0.,
+                        "sdr": 0.,
+                        "stoi": 0.,
+                        "pesq": 0.}        
         pbar = tqdm(test_dl, desc=f'Evaluation', postfix='[]')
         with torch.no_grad():
             for n, batch in enumerate(pbar):   
@@ -212,11 +209,11 @@ class Trainer:
                     x_stftspec_hat_db_norm = model(x_melspec_db_norm).squeeze()
                     
                     loss = mse(x_stftspec_db_norm, x_stftspec_hat_db_norm)
-                    test_loss += ((1./(n+1))*(loss-test_loss))
+                    test_scores["loss"] += ((1./(n+1))*(loss-test_scores["loss"]))
                     
                     sdr_metric = si_sdr_metric(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
                                             to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
-                    test_score += ((1./(n+1))*(sdr_metric-test_score))  
+                    test_scores["sdr"] += ((1./(n+1))*(sdr_metric-test_scores["sdr"]))  
                 
                 elif task == "spec2wav":
                     
@@ -229,20 +226,26 @@ class Trainer:
                     x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze().detach()
                     
                     loss = self._compute_loss(r2_to_c(x_stft_hat_stack), x_stft)
-                    test_loss += ((1./(n+1))*(loss-test_loss))
+                    test_scores["loss"] += ((1./(n+1))*(loss-test_scores["loss"]))
                     
                     if x_wav.dim() == 1:
                         x_wav = x_wav.unsqueeze(0)
                         x_wav_hat = x_wav_hat.unsqueeze(0)
                         
                     stoi_metric = self.stoi(x_wav, x_wav_hat) 
-                    test_score += ((1./(n+1))*(stoi_metric-test_score))
+                    test_scores["stoi"] += ((1./(n+1))*(stoi_metric-test_scores["stoi"]))
+                        
+                    pesq_metric = self.pesq(x_wav, x_wav_hat) 
+                    test_scores["pesq"] += ((1./(n+1))*(pesq_metric-test_scores["pesq"]))
 
                 
-                pbar.set_postfix_str(f'mse: {test_loss:.6f}, si-sdr: {test_score:.3f}')  
-                if n == 20:
-                    break    
-        return test_score, test_loss
+                scores_to_print = str({k: round(float(v), 4) for k, v in test_scores.items() if v != 0.})
+                pbar.set_postfix_str(scores_to_print)
+                
+                if n == 5:
+                    break  
+                 
+        return test_scores
 
     def _preprocess_mel2spec(self, x_stft):
         
@@ -284,31 +287,33 @@ class Trainer:
         if not os.path.exists(self.experiment_weights_dir):
             os.mkdir(self.experiment_weights_dir) 
             
-    def _update_training_state(self, train_loss, train_sdr_score, val_loss, val_stoi_score):
-            
-            if isinstance(train_loss, torch.Tensor):
-                train_loss = train_loss.item()
-            if isinstance(train_sdr_score, torch.Tensor):
-                train_sdr_score = train_sdr_score.item()
-            if isinstance(val_loss, torch.Tensor):
-                val_loss = val_loss.item()
-            if isinstance(val_stoi_score, torch.Tensor):
-                val_stoi_score = val_stoi_score.item()
-                
-            self.training_state["train_loss_hist"].append(train_loss)
-            self.training_state["train_score_hist"].append(train_sdr_score)
-            self.training_state["val_loss_hist"].append(val_loss)
-            self.training_state["val_score_hist"].append(val_stoi_score)
-            
-            if val_stoi_score <= self.training_state["best_val_score"]:
-                self.training_state["patience_epochs"] += 1
-                print(f'\nBest epoch was Epoch {self.training_state["best_epoch"]}: Validation metric = {self.training_state["best_val_score"]}')
-            else:
-                self.training_state["patience_epochs"] = 0
-                self.training_state["best_val_score"] = val_stoi_score
-                self.training_state["best_val_loss"] = val_loss
-                self.training_state["best_epoch"] = self.training_state["epochs"]
-                print("\nMetric on validation set improved")
+    def _update_training_state(self, train_scores, val_scores):
+
+        train_scores = {k: round(float(v), 4) for k, v in train_scores.items() if v != 0.}
+        val_scores = {k: round(float(v), 4) for k, v in val_scores.items() if v != 0.}
+        
+        for key, value in train_scores.items():
+            if isinstance(value, torch.Tensor):
+                value = value.item()
+            if key not in self.training_state["train_hist"]:
+                self.training_state["train_hist"][key] = []
+            self.training_state["train_hist"][key].append(value)
+        
+        for key, value in val_scores.items():
+            if isinstance(value, torch.Tensor):
+                value = value.item()
+            if key not in self.training_state["val_hist"]:
+                self.training_state["val_hist"][key] = []
+            self.training_state["val_hist"][key].append(value)
+        
+        if val_scores["loss"] <= self.training_state["best_val_score"]:
+            self.training_state["patience_epochs"] += 1
+            print(f'\nBest epoch was Epoch {self.training_state["best_epoch"]}: Validation metric = {self.training_state["best_val_score"]}')
+        else:
+            self.training_state["patience_epochs"] = 0
+            self.training_state["best_val_loss"] = val_scores["loss"]
+            self.training_state["best_epoch"] = self.training_state["epochs"]
+            print("Loss on validation set improved")
 
 
 def main(args):

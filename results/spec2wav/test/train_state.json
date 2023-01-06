@@ -1,19 +1,35 @@
 {
-    "epochs": 1,
+    "epochs": 2,
     "patience_epochs": 0,
-    "best_epoch": 1,
-    "best_val_loss": 5.997698922735458,
-    "best_val_score": 0.7660464644432068,
-    "train_loss_hist": [
-        5.624953828325573
-    ],
-    "train_score_hist": [
-        0.7284756302833557
-    ],
-    "val_loss_hist": [
-        5.997698922735458
-    ],
-    "val_score_hist": [
-        0.7660464644432068
-    ]
+    "best_epoch": 2,
+    "best_val_loss": 6.5899,
+    "best_val_score": 0,
+    "train_hist": {
+        "loss": [
+            5.5462,
+            5.2937
+        ],
+        "stoi": [
+            0.7299,
+            0.7078
+        ],
+        "pesq": [
+            1.8385,
+            2.0529
+        ]
+    },
+    "val_hist": {
+        "loss": [
+            6.6112,
+            6.5899
+        ],
+        "stoi": [
+            0.7744,
+            0.7674
+        ],
+        "pesq": [
+            1.7427,
+            1.7757
+        ]
+    }
 }
