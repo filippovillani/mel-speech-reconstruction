@@ -46,18 +46,17 @@ class Trainer:
             self.model = build_model(self.hprms, args.model_name, self.experiment_weights_dir, best_weights = False)
             self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)        
             self.optimizer.load_state_dict(torch.load(self.ckpt_opt_path)) 
-            self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=10)
+            self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=2)
             self.lr_sched.load_state_dict(torch.load(self.ckpt_sched_path))
         else:        
             self.model = build_model(self.hprms, args.model_name)
             self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)
-            self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=10)
+            self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=2)
  
             self.training_state = {"epochs": 0,
                                    "patience_epochs": 0,  
                                    "best_epoch": 0,
                                    "best_val_loss": 9999,
-                                   "best_val_score": 0,
                                    "train_hist": {},
                                    "val_hist": {}} 
                
@@ -306,9 +305,9 @@ class Trainer:
                 self.training_state["val_hist"][key] = []
             self.training_state["val_hist"][key].append(value)
         
-        if val_scores["loss"] <= self.training_state["best_val_score"]:
+        if val_scores["loss"] >= self.training_state["best_val_loss"]:
             self.training_state["patience_epochs"] += 1
-            print(f'\nBest epoch was Epoch {self.training_state["best_epoch"]}: Validation metric = {self.training_state["best_val_score"]}')
+            print(f'\nBest epoch was Epoch {self.training_state["best_epoch"]}: Validation metric = {self.training_state["best_val_loss"]}')
         else:
             self.training_state["patience_epochs"] = 0
             self.training_state["best_val_loss"] = val_scores["loss"]

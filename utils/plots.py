@@ -25,8 +25,8 @@ def plot_train_hist(experiment_dir):
     for metric, value in training_state["train_hist"].items():
         save_path = experiment_dir / (metric + '.png')
         plt.figure()
-        plt.plot(range(1, 1+training_state["epochs"]), training_state["train_hist"][metric], label='train')
-        plt.plot(range(1, 1+training_state["epochs"]), training_state["val_hist"][metric], label='validation')
+        plt.plot(range(1, 1+training_state["epochs"]), value, label='train')
+        plt.plot(range(1, 1+training_state["epochs"]), value, label='validation')
         plt.xlabel('Epochs')
         plt.ylabel(metric)
         plt.title(experiment_name)
