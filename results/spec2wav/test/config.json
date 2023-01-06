@@ -12,6 +12,12 @@
     "hop_len": 256,
     "audio_ms": 4080,
     "min_noise_ms": 1000,
+    "hidden_channel": 32,
+    "kernel_size": [
+        3,
+        3
+    ],
+    "n_degli_repetitions": 5,
     "audio_len": 65280,
     "n_frames": 256,
     "n_stft": 513

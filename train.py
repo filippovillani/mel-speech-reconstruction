@@ -47,7 +47,7 @@ class Trainer:
             self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)        
             self.optimizer.load_state_dict(torch.load(self.ckpt_opt_path)) 
             self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=10)
-            self.lr_sched.load_statedict(torch.load(self.ckpt_sched_path))
+            self.lr_sched.load_state_dict(torch.load(self.ckpt_sched_path))
         else:        
             self.model = build_model(self.hprms, args.model_name)
             self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)
@@ -257,7 +257,7 @@ class Trainer:
             self.hprms = config.load_config(self.config_path)
         else:
             self.hprms = config.create_hparams(args.model_name)
-            config.save_config(self.config_path)
+            config.save_config(self.hprms, self.config_path)
                 
     def _set_paths(self, experiment_name, task):
         
@@ -335,9 +335,8 @@ if __name__ == "__main__":
                         type=str,
                         default='test')
     parser.add_argument('--resume_training',
-                        type=bool,
-                        help="set to True if you want to restart training from a checkpoint",
-                        default=False)
+                        action='store_true',
+                        help="use this flag if you want to restart training from a checkpoint")
     
     args = parser.parse_args()
     main(args)

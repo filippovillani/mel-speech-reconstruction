@@ -50,12 +50,10 @@ def create_hparams(model_name: str = None):   # training hparams
     
     return hparams
 
-def save_config(config_path):
-    
-    hparams = vars(create_hparams())
-    
+def save_config(hparams, config_path):
+        
     with open(config_path, "w") as fp:
-        json.dump(hparams, fp, indent=4)
+        json.dump(vars(hparams), fp, indent=4)
 
 def load_config(config_path):
     
