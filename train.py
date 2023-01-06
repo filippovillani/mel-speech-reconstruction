@@ -7,6 +7,7 @@ import librosa
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 from tqdm import tqdm
@@ -29,6 +30,7 @@ class Trainer:
         self.melfb = torch.as_tensor(librosa.filters.mel(sr = self.hprms.sr, 
                                                          n_fft = self.hprms.n_fft, 
                                                          n_mels = self.hprms.n_mels)).to(self.hprms.device)
+
         self.loss = torch.nn.L1Loss()
         # self.loss = torch.nn.MSELoss()
         self.pesq = PerceptualEvaluationSpeechQuality(fs = self.hprms.sr, 
@@ -44,12 +46,13 @@ class Trainer:
             self.model = build_model(self.hprms, args.model_name, self.experiment_weights_dir, best_weights = False)
             self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)        
             self.optimizer.load_state_dict(torch.load(self.ckpt_opt_path)) 
-            
+            self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=10)
+            self.lr_sched.load_statedict(torch.load(self.ckpt_sched_path))
         else:        
             self.model = build_model(self.hprms, args.model_name)
             self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)
-
-                
+            self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=10)
+ 
             self.training_state = {"epochs": 0,
                                    "patience_epochs": 0,  
                                    "best_epoch": 0,
@@ -129,14 +132,14 @@ class Trainer:
                     
                 pbar.set_postfix_str(f'mse: {train_loss:.6f}, stoi: {train_stoi_score:.3f}, pesq: {train_pesq_score:.3f}')
                 
-                if n == 20:
+                if n == 50:
                     break
 
             # Evaluate on the validation set
             val_stoi_score, val_loss = self.eval_model(model=self.model, 
                                                   test_dl=val_dl,
                                                   task=args.task)
-            
+            self.lr_sched.step(val_loss)
             # Update training state
             self._update_training_state(train_loss, train_stoi_score, val_loss, val_stoi_score)
             
@@ -149,6 +152,7 @@ class Trainer:
                 json.dump(self.training_state, fw, indent=4)    
             torch.save(self.model.state_dict(), self.ckpt_weights_path)
             torch.save(self.optimizer.state_dict(), self.ckpt_opt_path)
+            torch.save(self.lr_sched.state_dict(), self.ckpt_sched_path)
             
             # Save plot of train history
             plot_train_hist(self.experiment_dir)            
@@ -272,6 +276,7 @@ class Trainer:
         self.best_weights_path = self.experiment_weights_dir / 'best_weights'
         self.ckpt_weights_path = self.experiment_weights_dir / 'ckpt_weights'
         self.ckpt_opt_path = self.experiment_weights_dir / 'ckpt_opt'
+        self.ckpt_sched_path = self.experiment_weights_dir / 'ckpt_sched'
         
         if not os.path.exists(self.experiment_dir):
             os.mkdir(self.experiment_dir)
