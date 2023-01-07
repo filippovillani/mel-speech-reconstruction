@@ -22,17 +22,18 @@ def plot_train_hist(experiment_dir):
     with open(train_state_path) as fp:
         training_state = json.load(fp)
 
-    for metric, value in training_state["train_hist"].items():
+    for metric in training_state["train_hist"].keys():
         save_path = experiment_dir / (metric + '.png')
         plt.figure()
-        plt.plot(range(1, 1+training_state["epochs"]), value, label='train')
-        plt.plot(range(1, 1+training_state["epochs"]), value, label='validation')
+        plt.plot(range(1, 1+training_state["epochs"]), training_state["train_hist"][metric], label='train')
+        plt.plot(range(1, 1+training_state["epochs"]), training_state["val_hist"][metric], label='validation')
         plt.xlabel('Epochs')
         plt.ylabel(metric)
         plt.title(experiment_name)
         plt.legend()
         plt.grid()
         plt.savefig(save_path)
+        plt.close()
 
 def plot_prediction(mel: np.ndarray,
                     mel_hat: np.ndarray,
@@ -61,3 +62,4 @@ def plot_prediction(mel: np.ndarray,
     plt.title('STFT-spectrogram predicted')
     plt.colorbar(format="%+2.f dB")
     plt.savefig(save_path)
+
