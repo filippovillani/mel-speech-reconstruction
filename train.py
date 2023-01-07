@@ -31,12 +31,17 @@ class Trainer:
                                                          n_fft = self.hprms.n_fft, 
                                                          n_mels = self.hprms.n_mels)).to(self.hprms.device)
 
-        self.loss = torch.nn.L1Loss()
-        # self.loss = torch.nn.MSELoss()
+        self.loss_fn = torch.nn.L1Loss(reduction="none")
+        # self.loss_fn = torch.nn.MSELoss()
         self.pesq = PerceptualEvaluationSpeechQuality(fs = self.hprms.sr, 
                                                       mode= "wb")
         self.stoi = ShortTimeObjectiveIntelligibility(fs = self.hprms.sr)
 
+        if args.task == "spec2wav":
+            self.loss_weights = torch.tensor([1./i for i in range(self.hprms.n_degli_repetitions, 0, -1)])
+            self.loss_weights /= self.loss_weights.sum()
+            self.loss_weights = self.loss_weights.to(self.hprms.device)
+        
         if args.resume_training:
             # Load training state
             with open(self.training_state_path, "r") as fp:
@@ -106,7 +111,7 @@ class Trainer:
                     x_wav = compute_wav(x_stft, n_fft=self.hprms.n_fft).squeeze()
                     x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze().detach()
                     
-                    loss = self._compute_loss(r2_to_c(x_stft_hat_stack), x_stft)
+                    loss = self._compute_loss(x_stft_hat_stack, c_to_r2(x_stft))
                     train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
                     loss.backward()  
                     self.optimizer.step()
@@ -129,8 +134,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                if n == 5:
-                    break
+                # if n == 50:
+                #     break
 
             # Evaluate on the validation set
             val_scores = self.eval_model(model = self.model, 
@@ -176,15 +181,20 @@ class Trainer:
         
         return noise
     
-    def _compute_loss(self, x_stft_hat_stack, x_stft):
+    # def _compute_loss(self, x_stft_hat_stack, x_stft):
         
-        loss = 0.
-        scale_factor = 0.
-        for n in range(x_stft_hat_stack.shape[1]):
-            x_stft_hat = x_stft_hat_stack[:,n]
-            scale_factor += 1. / (self.hprms.n_degli_repetitions - n)
-            loss += (self.loss(x_stft_hat, x_stft) / (self.hprms.n_degli_repetitions - n))
-        loss /= scale_factor
+    #     loss = 0.
+    #     scale_factor = 0.
+    #     for n in range(x_stft_hat_stack.shape[1]):
+    #         x_stft_hat = x_stft_hat_stack[:,n]
+    #         scale_factor += 1. / (self.hprms.n_degli_repetitions - n)
+    #         loss += (self.loss_fn(x_stft_hat, x_stft) / (self.hprms.n_degli_repetitions - n))
+    #     loss /= scale_factor
+    #     return loss
+    def _compute_loss(self, x_stft_hat_stack, x_stft):
+        loss_nr = self.loss_fn(x_stft_hat_stack, x_stft.unsqueeze(2).expand(-1,-1,x_stft_hat_stack.shape[2],-1,-1)) # non-reduced L1-loss
+        loss_rep = torch.mean(loss_nr, dim=(0,1,3,4)).float()
+        loss = loss_rep @ self.loss_weights
         return loss
     
     def eval_model(self,
@@ -224,7 +234,7 @@ class Trainer:
                     x_wav = compute_wav(x_stft, n_fft=self.hprms.n_fft).squeeze()
                     x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze().detach()
                     
-                    loss = self._compute_loss(r2_to_c(x_stft_hat_stack), x_stft)
+                    loss = self._compute_loss(x_stft_hat_stack, c_to_r2(x_stft))
                     test_scores["loss"] += ((1./(n+1))*(loss-test_scores["loss"]))
                     
                     if x_wav.dim() == 1:
@@ -241,8 +251,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in test_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                if n == 5:
-                    break  
+                # if n == 50:
+                #     break  
                  
         return test_scores
 

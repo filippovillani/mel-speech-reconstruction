@@ -23,7 +23,7 @@ def create_hparams(model_name: str = None):   # training hparams
     else:
         model_hparams = Namespace()
         
-    hparams = Namespace(batch_size = 1,
+    hparams = Namespace(batch_size = 2,
                         lr = 1e-3,
                         epochs = 70,
                         patience = 20,
