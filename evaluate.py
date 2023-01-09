@@ -75,20 +75,24 @@ def main(args):
     elif args.model_name in ["convpinv", "unet"]:
         trainer = Trainer(args)
         model = build_model(hparams, args.model_name, weights_dir, args.best_weights)
-        test_score, test_loss = trainer.eval_model(model, test_dl, args.task)    
+        test_scores = trainer.eval_model(model, test_dl, args.task)
+        # test_metrics = {"mse": float(test_scores["loss"]),
+        #                 "si-sdr": float(test_scores["sdr"])}
+        with open(test_metrics_path, "w") as fp:
+            json.dump(test_scores, fp, indent=4)    
     # TODO:
     elif args.model_name in ["degli"]:
-        pass
-    
+        trainer = Trainer(args)
+        model = build_model(hparams, args.model_name, weights_dir, args.best_weights)
+        test_scores = trainer.eval_model(model, test_dl, args.task)   
+        # test_metrics = {"mse": float(test_scores["loss"]),
+        #                 "si-sdr": float(test_scores["sdr"])}
+        with open(test_metrics_path, "w") as fp:
+            json.dump(test_scores, fp, indent=4) 
     else: 
         raise ValueError(f'model_name must be one of ["unet", "librosa", "convpinv", "pinv", "degli"], \
                          received: {args.model_name}')
-    # TODO: move these inside model evaluation
-    test_metrics = {"mse": float(test_loss),
-                    "si-sdr": float(test_score)}
-        
-    with open(test_metrics_path, "w") as fp:
-        json.dump(test_metrics, fp, indent=4)
+
 
 
 if __name__ == "__main__":
@@ -98,19 +102,19 @@ if __name__ == "__main__":
                         help = "models: unet, librosa (evaluates librosa.feature.inverse.mel_to_stft())," 
                         "convpinv (simple CNN + pseudoinverse melfb), pinv (pseudoinverse melfb baseline)",
                         type=str,
-                        default = 'convpinv')
+                        default = 'degli')
     parser.add_argument('--task',
                         type=str,
                         choices=["melspec2spec", "spec2wav"],
-                        default='melspec2spec')
+                        default='spec2wav')
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='test')
+                        default='degli_B1_K33_C32_N5')
     parser.add_argument('--best_weights',
                         type=bool,
                         default=True)
     parser.add_argument('--resume_training',
-                        type=bool,
-                        default=False)
+                        action='store_true',
+                        help="use this flag if you want to restart training from a checkpoint")
     args = parser.parse_args()
     main(args)

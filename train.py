@@ -25,6 +25,7 @@ from utils.utils import c_to_r2, r2_to_c
 class Trainer:
     def __init__(self, args):
         
+        self.args = args
         self._set_paths(args.experiment_name, args.task)
         self._set_hparams(args.resume_training)
         self.melfb = torch.as_tensor(librosa.filters.mel(sr = self.hprms.sr, 
@@ -89,7 +90,7 @@ class Trainer:
                 self.optimizer.zero_grad()  
                 x_stft = batch["stft"].to(self.hprms.device)
                 
-                if args.task == "melspec2spec":
+                if self.args.task == "melspec2spec":
                     x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec(x_stft)
                     x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze()
                     
@@ -102,7 +103,7 @@ class Trainer:
                                                to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
                     train_scores["sdr"] += ((1./(n+1))*(sdr_metric-train_scores["sdr"]))  
                                 
-                elif args.task == "spec2wav":
+                elif self.args.task == "spec2wav":
                     x_stft_mag = torch.abs(x_stft).float().unsqueeze(1)
                     
                     x_stft_hat_stack, x_stft_magreplaced = self.model(x_stft_mag)
@@ -123,14 +124,14 @@ class Trainer:
                     pesq_metric = self.pesq(x_wav, x_wav_hat) 
                     train_scores["pesq"]  += ((1./(n+1))*(pesq_metric-train_scores["pesq"]))
                     
-                elif args.task == "mel2wav":
+                elif self.args.task == "mel2wav":
                     # TODO: not implemented yet 
                     # stack ConvPInv and DeGLI
                     pass
                 
                 else:
                     raise ValueError(f"task must be one of [melspec2spec, spec2wav, mel2wav], \
-                        received {args.task}")
+                        received {self.args.task}")
                 scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
@@ -140,7 +141,7 @@ class Trainer:
             # Evaluate on the validation set
             val_scores = self.eval_model(model = self.model, 
                                          test_dl = val_dl,
-                                         task = args.task)
+                                         task = self.args.task)
             self.lr_sched.step(val_scores['loss'])
             # Update training state
             self._update_training_state(train_scores, val_scores)
@@ -268,7 +269,7 @@ class Trainer:
         if resume_training:
             self.hprms = config.load_config(self.config_path)
         else:
-            self.hprms = config.create_hparams(args.model_name)
+            self.hprms = config.create_hparams(self.args.model_name)
             config.save_config(self.hprms, self.config_path)
                 
     def _set_paths(self, experiment_name, task):
