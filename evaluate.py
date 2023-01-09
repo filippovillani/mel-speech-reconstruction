@@ -40,34 +40,50 @@ def eval_librosa(hparams: Namespace,
         test_score += ((1./(n+1))*(score-test_score))
 
     return test_loss, test_score
-   
+
+    
 
 def main(args):
+    # TODO: divide these sections into functions
     
-    config_path = config.MELSPEC2SPEC_DIR / args.experiment_name / "config.json"
+    # Directories
+    if args.task == "melspec2spec":
+        results_dir = config.MELSPEC2SPEC_DIR
+    elif args.task == "spec2wav":
+        results_dir = config.SPEC2WAV_DIR
+    else:
+        raise ValueError(f"task must be one of ['melspec2spec', 'spec2wav'], received {args.task}")
     
+    config_path = results_dir / args.experiment_name / "config.json"
+    weights_dir = config.WEIGHTS_DIR / args.experiment_name
+    test_metrics_path = results_dir / args.experiment_name / 'test_metrics.json' # TODO
+ 
     if args.model_name != 'pinv':
         hparams = config.load_config(config_path)
     else:
         hparams = config.create_hparams()
-        
-    test_dl = build_dataloader(hparams, config.DATA_DIR, "test")
-    test_metrics_path = config.MELSPEC2SPEC_DIR / args.experiment_name / 'test_metrics.json'
     
+    # Test DataLoader
+    test_dl = build_dataloader(hparams, config.DATA_DIR, "test")
+
+    # Model evaluation
     if args.model_name == "librosa":
         if not os.path.exists(config.MELSPEC2SPEC_DIR / args.model_name):
             os.mkdir(config.MELSPEC2SPEC_DIR / args.model_name)       
         test_loss, test_score = eval_librosa(hparams, test_dl)
-        
-    elif args.model_name in ["convpinv", "unet", "degli"]:
-        weights_dir = config.WEIGHTS_DIR / args.experiment_name
+    
+    elif args.model_name in ["convpinv", "unet"]:
         trainer = Trainer(args)
         model = build_model(hparams, args.model_name, weights_dir, args.best_weights)
         test_score, test_loss = trainer.eval_model(model, test_dl, args.task)    
+    # TODO:
+    elif args.model_name in ["degli"]:
+        pass
     
     else: 
         raise ValueError(f'model_name must be one of ["unet", "librosa", "convpinv", "pinv", "degli"], \
                          received: {args.model_name}')
+    # TODO: move these inside model evaluation
     test_metrics = {"mse": float(test_loss),
                     "si-sdr": float(test_score)}
         
