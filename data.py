@@ -8,6 +8,7 @@ import librosa
 import numpy as np
 import pandas as pd
 import torch
+from tqdm import tqdm
 
 import config
 
@@ -37,7 +38,8 @@ def split_dataframes(df,
     test_df = df[train_len+val_len:]
     
     return train_df, val_df, test_df
-    
+
+import librosa.display
 
 def build_data(hparams: Namespace,
                df: pd.DataFrame,
@@ -48,10 +50,9 @@ def build_data(hparams: Namespace,
     if not os.path.exists(out_dir):
         os.mkdir(out_dir) 
         
-    for path in df:
+    for path in tqdm(df):
         # extract file name and use it to save the spectrograms
         audio_name = path.name
-        spectr_path = out_dir / (audio_name + '.pt')
         # Open audio  
         audio, _ = librosa.load(path, sr=hparams.sr)
         
@@ -63,21 +64,31 @@ def build_data(hparams: Namespace,
             pad_begin = np.zeros(pad_begin_len)
             pad_end = np.zeros(pad_end_len)
         
-            audio = np.concatenate((pad_begin, audio, pad_end))  
+            audio_out = np.expand_dims(np.concatenate((pad_begin, audio, pad_end)), 0)
             
         else:
-            start_position = np.random.randint(0, len(audio) - hparams.audio_len)
-            end_position = start_position + hparams.audio_len
-            audio = audio[start_position:end_position]
+            # start_position = np.random.randint(0, len(audio) - hparams.audio_len)
+            # end_position = start_position + hparams.audio_len
+            audio_out = []
+            n = 0
+            while len(audio[n * hparams.audio_len : (n+1) * hparams.audio_len]) == hparams.audio_len:
+                audio_out.append(audio[n * hparams.audio_len : (n+1) * hparams.audio_len])
+                n += 1
+            if hparams.audio_len - len(audio[n * hparams.audio_len:]) < 0.5 * len(audio[n * hparams.audio_len:]):
+                pad = np.zeros((hparams.audio_len - len(audio[n * hparams.audio_len:])))
+                audio_out.append(np.concatenate((audio[n * hparams.audio_len:], pad)))
+            audio_out = np.stack(audio_out, axis=0)
         
-        # Normalize audio
-        audio = (audio - audio.mean()) / (audio.std() + 1e-12)
-        
-        spectr = librosa.stft(y=audio, 
-                              n_fft=hparams.n_fft,
-                              hop_length=hparams.hop_len)
-        spectr = torch.as_tensor(spectr)
-        torch.save(spectr, spectr_path)
+        for n in range(audio_out.shape[0]):
+            # Normalize audio
+            audio_out[n] = (audio_out[n] - audio_out[n].mean()) / (audio_out[n].std() + 1e-12)
+            out = torch.as_tensor(audio_out[n])
+            spectr_path = out_dir / (audio_name + f'_seg{n}.pt')
+            spectr = torch.stft(input=out, 
+                                n_fft=hparams.n_fft,
+                                hop_length=hparams.hop_len,
+                                return_complex=True)
+            torch.save(spectr, spectr_path)
 
 def main():
 
