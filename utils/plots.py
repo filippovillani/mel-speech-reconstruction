@@ -62,6 +62,3 @@ def plot_prediction(mel: np.ndarray,
     plt.title('STFT-spectrogram predicted')
     plt.colorbar(format="%+2.f dB")
     plt.savefig(save_path)
-
-from pathlib import Path
-plot_train_hist(Path('results\spec2wav\degli_B2_K33_C32_N5'))
