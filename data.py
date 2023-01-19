@@ -79,7 +79,9 @@ def build_data(hparams: Namespace,
             audio_out = np.stack(audio_out, axis=0)
         
         for n in range(audio_out.shape[0]):
-            out = torch.as_tensor(min_max_normalization(audio_out[n]))
+            # Normalize audio
+            out = (audio_out[n] - audio_out[n].mean()) / (audio_out[n].std() + 1e-12)
+            out = torch.as_tensor(audio_out[n])
             spectr_path = out_dir / (audio_name + f'_seg{n}.pt')
             spectr = torch.stft(input=out, 
                                 n_fft=hparams.n_fft,
