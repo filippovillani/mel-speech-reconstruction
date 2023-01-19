@@ -1,5 +1,5 @@
 '''
-Generate and save melspectrograms, stftspectrograms and wav as .npy files
+Generate and save stft as .pt files
 '''
 import os
 from argparse import Namespace
@@ -11,6 +11,7 @@ import torch
 from tqdm import tqdm
 
 import config
+from utils.audioutils import min_max_normalization
 
 
 def build_timit_df():
@@ -28,18 +29,17 @@ def build_timit_df():
     return timit_df
 
 def split_dataframes(df,
-                     split_ratio: list = [0.6, 0.2, 0.2]):
+                     split_ratio: list = [0.9, 0.05, 0.05]):
     
     df_len = len(df)
     train_len = int(df_len * split_ratio[0])
     val_len = int(df_len * split_ratio[1])
+    
     train_df = df[:train_len]
     val_df = df[train_len:train_len+val_len]
     test_df = df[train_len+val_len:]
     
     return train_df, val_df, test_df
-
-import librosa.display
 
 def build_data(hparams: Namespace,
                df: pd.DataFrame,
@@ -50,12 +50,10 @@ def build_data(hparams: Namespace,
     if not os.path.exists(out_dir):
         os.mkdir(out_dir) 
         
-    for path in tqdm(df):
-        # extract file name and use it to save the spectrograms
-        audio_name = path.name
+    for n, path in enumerate(tqdm(df)):
+        audio_name = f'ex_{n}'
         # Open audio  
         audio, _ = librosa.load(path, sr=hparams.sr)
-        
         # pad or trunc all vectors to the same size
         if len(audio) < hparams.audio_len:
             pad_begin_len = np.random.randint(0, hparams.audio_len - len(audio))
@@ -67,22 +65,21 @@ def build_data(hparams: Namespace,
             audio_out = np.expand_dims(np.concatenate((pad_begin, audio, pad_end)), 0)
             
         else:
-            # start_position = np.random.randint(0, len(audio) - hparams.audio_len)
-            # end_position = start_position + hparams.audio_len
             audio_out = []
             n = 0
             while len(audio[n * hparams.audio_len : (n+1) * hparams.audio_len]) == hparams.audio_len:
-                audio_out.append(audio[n * hparams.audio_len : (n+1) * hparams.audio_len])
-                n += 1
-            if hparams.audio_len - len(audio[n * hparams.audio_len:]) < 0.5 * len(audio[n * hparams.audio_len:]):
-                pad = np.zeros((hparams.audio_len - len(audio[n * hparams.audio_len:])))
-                audio_out.append(np.concatenate((audio[n * hparams.audio_len:], pad)))
+                audio_seg = audio[n * hparams.audio_len : (n+1) * hparams.audio_len]
+                # Compare audio to a threshold to detect if there is no utterance in it
+                if np.mean(np.square(audio_seg)) > 1e-6:
+                    audio_out.append(audio_seg)
+                    n += 1
+                else:
+                    break
+
             audio_out = np.stack(audio_out, axis=0)
         
         for n in range(audio_out.shape[0]):
-            # Normalize audio
-            audio_out[n] = (audio_out[n] - audio_out[n].mean()) / (audio_out[n].std() + 1e-12)
-            out = torch.as_tensor(audio_out[n])
+            out = torch.as_tensor(min_max_normalization(audio_out[n]))
             spectr_path = out_dir / (audio_name + f'_seg{n}.pt')
             spectr = torch.stft(input=out, 
                                 n_fft=hparams.n_fft,
