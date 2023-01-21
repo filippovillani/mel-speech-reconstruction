@@ -26,9 +26,9 @@ def si_sdr_metric(s_target: torch.Tensor,
                          torch.sum(torch.pow(s_target, 2)) + 1e-12)
     
     e_noise = s_hat - s_target
-    SI_SDR_linear = torch.divide(torch.sum(torch.pow(s_target, 2)), torch.sum(torch.pow(e_noise, 2))  + 1e-12)
-    SI_SDR = torch.mul(torch.log10(SI_SDR_linear), 10.)
-    return SI_SDR 
+    SI_SDR_linear = torch.divide(torch.sum(torch.pow(s_target, 2)), torch.sum(torch.pow(e_noise, 2)) + 1e-12)
+    si_sdr = torch.mul(torch.log10(SI_SDR_linear), 10.)
+    return si_sdr 
 
 def si_nsr_loss(enhanced_speech: torch.Tensor, 
                 clean_speech: torch.Tensor)->torch.Tensor:
@@ -40,5 +40,5 @@ def si_nsr_loss(enhanced_speech: torch.Tensor,
                          torch.sum(torch.pow(s_target, 2)) + 1e-12)
     
     SI_NSR_linear = torch.divide(torch.sum(torch.pow(s_hat - s_target, 2)), torch.sum(torch.pow(s_target, 2)))
-    SI_NSR = torch.mul(torch.log10(SI_NSR_linear), 10.)
-    return SI_NSR
+    si_nsr = torch.mul(torch.log10(SI_NSR_linear), 10.)
+    return si_nsr
