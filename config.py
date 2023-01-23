@@ -35,7 +35,7 @@ def create_hparams(model_name: str = None):   # training hparams
                         n_fft = 1024,
                         n_channels = 1,
                         hop_len = 256,
-                        audio_ms = 2040,
+                        audio_ms = 1020,
                         min_noise_ms = 1000)
     # more audio parameters
     audio_len_ = int(hparams.sr * hparams.audio_ms // 1000)
