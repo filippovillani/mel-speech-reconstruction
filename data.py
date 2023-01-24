@@ -54,9 +54,10 @@ def build_data(hparams: Namespace,
         audio_name = f'ex_{n}'
         # Open audio  
         audio, _ = librosa.load(path, sr=hparams.sr)
-        audio = audio[int(0.3 * hparams.sr):int(len(audio) - 0.3 * hparams.sr)] # remove 0.3s from start and end
+        audio = audio[int(0.1 * hparams.sr):int(len(audio) - 0.5 * hparams.sr)] # remove samps from start and end
+        audio_power = np.mean(audio ** 2)
         # pad or trunc all vectors to the same size
-        if len(audio) < hparams.audio_len and np.mean(audio ** 2) > 5e-6:
+        if len(audio) < hparams.audio_len:
             pad_begin_len = np.random.randint(0, hparams.audio_len - len(audio))
             pad_end_len = hparams.audio_len - len(audio) - pad_begin_len
             
@@ -70,12 +71,14 @@ def build_data(hparams: Namespace,
             n = 0
             while len(audio[n * hparams.audio_len : (n+1) * hparams.audio_len]) == hparams.audio_len:
                 audio_seg = audio[n * hparams.audio_len : (n+1) * hparams.audio_len]
+                seg_power = np.mean(audio_seg ** 2)
+                n += 1
                 # Compare audio to a threshold to detect if there is no utterance in it
-                if np.mean(np.square(audio_seg)) > 5e-6:
+                if seg_power > hparams.audio_thresh * audio_power:
                     audio_out.append(audio_seg)
-                    n += 1
                 else:
-                    break
+                    continue
+                
             if len(audio_out) != 0:
                 audio_out = np.stack(audio_out, axis=0)
             else: 
@@ -83,8 +86,7 @@ def build_data(hparams: Namespace,
         
         for n in range(audio_out.shape[0]):
             # Normalize audio
-            out = standardization(audio_out[n])
-            out = torch.as_tensor(audio_out[n])
+            out = torch.as_tensor(standardization(audio_out[n]))
             spectr_path = out_dir / (audio_name + f'_seg{n}.pt')
             spectr = torch.stft(input=out, 
                                 n_fft=hparams.n_fft,
