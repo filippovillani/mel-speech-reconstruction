@@ -1,0 +1,33 @@
+{
+    "epochs": 2,
+    "patience_epochs": 0,
+    "best_epoch": 2,
+    "best_epoch_scores": {
+        "stoi": 0.71,
+        "pesq": 1.3059
+    },
+    "train_hist": {
+        "loss": [
+            2.9334,
+            3.4877
+        ],
+        "stoi": [
+            0.9699,
+            0.961
+        ],
+        "pesq": [
+            2.7495,
+            2.6396
+        ]
+    },
+    "val_hist": {
+        "stoi": [
+            0.709,
+            0.71
+        ],
+        "pesq": [
+            1.2983,
+            1.3059
+        ]
+    }
+}

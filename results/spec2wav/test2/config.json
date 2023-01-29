@@ -1,0 +1,28 @@
+{
+    "batch_size": 1,
+    "lr": 0.0001,
+    "degli_data_lr": 1e-06,
+    "epochs": 70,
+    "patience": 5,
+    "loss": "l1",
+    "max_snr_db": 12,
+    "min_snr_db": -6,
+    "hidden_channel": 32,
+    "kernel_size": [
+        5,
+        3
+    ],
+    "val_degli_rep": 3,
+    "device": "cuda",
+    "num_workers": 0,
+    "sr": 16000,
+    "n_mels": 96,
+    "n_fft": 1024,
+    "n_channels": 1,
+    "hop_len": 256,
+    "audio_ms": 1040,
+    "min_noise_ms": 1000,
+    "audio_len": 16640,
+    "n_frames": 66,
+    "n_stft": 513
+}
