@@ -17,7 +17,7 @@ def create_hparams(model_name: str = None):   # training hparams
                                  degli_data_lr = 1e-6,
                                  epochs = 70,
                                  patience = 5,
-                                 loss = "l1", # can be one of ["l1", "mse", "frobenius"]
+                                 loss = "l1", # can be one of ["l1", "complexmse", "mse", "frobenius"]
                                  max_snr_db = 12,
                                  min_snr_db = -6)
     

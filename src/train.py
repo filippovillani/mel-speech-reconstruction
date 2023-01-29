@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 import config
 from dataset import build_dataloader
-from metrics import mse, si_sdr_metric
+from metrics import SI_SDR
 from losses import ComplexMSELoss, FrobeniusLoss
 from networks.build_model import build_model
 from utils.audioutils import (compute_wav, denormalize_db_spectr,
@@ -46,7 +46,7 @@ class Trainer:
         
         self.pesq = PerceptualEvaluationSpeechQuality(fs=self.hprms.sr, mode="wb")
         self.stoi = ShortTimeObjectiveIntelligibility(fs=self.hprms.sr)
-        # TODO: self.sisdr = ...
+        self.sisdr = SI_SDR()
         if args.resume_training:
             # Load model's weights, optimizer and scheduler from checkpoint
             with open(self.training_state_path, "r") as fp:
@@ -94,13 +94,13 @@ class Trainer:
                     x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch)
                     x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze()
                     
-                    loss = mse(x_stftspec_db_norm, x_stftspec_hat_db_norm)
+                    loss = self.loss_fn(x_stftspec_db_norm, x_stftspec_hat_db_norm)
                     train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
                     loss.backward()  
                     self.optimizer.step()    
                     
-                    sdr_metric = si_sdr_metric(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
-                                               to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
+                    sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
+                                            to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
                     train_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-train_scores["si-sdr"]))  
                                 
                 elif self.task == "spec2wav":
@@ -244,10 +244,10 @@ class Trainer:
                     x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch)
                     x_stftspec_hat_db_norm = model(x_melspec_db_norm).squeeze()
                     
-                    loss = mse(x_stftspec_db_norm, x_stftspec_hat_db_norm)
+                    loss = self.loss_fn(x_stftspec_db_norm, x_stftspec_hat_db_norm)
                     test_scores["loss"] += ((1./(n+1))*(loss-test_scores["loss"]))
                     
-                    sdr_metric = si_sdr_metric(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
+                    sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
                                             to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
                     test_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-test_scores["si-sdr"]))  
                 
@@ -393,13 +393,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name',
                         type=str,
-                        choices=["unet", "convpinv", "degliblock", "degli"],
-                        default='convpinv')
+                        choices=["unet", "convpinv", "degli"],
+                        default='degli')
     
     parser.add_argument('--task',
                         type=str,
                         choices=["melspec2spec", "spec2wav"],
-                        default='melspec2spec')
+                        default='spec2wav')
     
     parser.add_argument('--experiment_name',
                         type=str,
