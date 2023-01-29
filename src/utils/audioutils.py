@@ -2,9 +2,8 @@ import librosa
 import numpy as np
 import torch
 
-
 def compute_wav(x_n_stft, n_fft):
-    
+
     x_wav_hat = torch.stack([torch.istft(x_n_stft[b], n_fft=n_fft) for b in range(x_n_stft.shape[0])], dim=0)
     x_wav_hat = min_max_normalization(x_wav_hat)
     return x_wav_hat
@@ -48,14 +47,8 @@ def open_audio(audio_path, hparams):
     return audio
     
 def min_max_normalization(x_wav):
-    
     if isinstance(x_wav, torch.Tensor):
         x_wav = (x_wav - torch.min(x_wav)) / (torch.max(x_wav) - torch.min(x_wav))
     if isinstance(x_wav, np.ndarray):
         x_wav = (x_wav - np.min(x_wav)) / (np.max(x_wav) - np.min(x_wav))
-    return x_wav
-
-def standardization(x_wav):
-    
-    x_wav = (x_wav - x_wav.mean()) / (x_wav.std() + 1e-12)
     return x_wav

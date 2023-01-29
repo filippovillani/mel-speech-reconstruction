@@ -1,4 +1,15 @@
+import json
+
 import torch
+
+def save_to_json(data, paths):
+    if not isinstance(data, list):
+        data = [data]
+    if not isinstance(paths, list):
+        paths = [paths]
+    for dat, path in zip(data, paths):
+        with open(path, "w") as fp:
+            json.dump(dat, fp, indent=4)
 
 def r2_to_c(x_r2):
     

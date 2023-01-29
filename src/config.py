@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import random
 from argparse import Namespace
 from pathlib import Path
@@ -7,44 +8,48 @@ from pathlib import Path
 import numpy as np
 import torch
 
-
 def create_hparams(model_name: str = None):   # training hparams
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    
+    training_hparams = Namespace(batch_size = 1,
+                                 lr = 1e-4,
+                                 degli_data_lr = 1e-6,
+                                 epochs = 70,
+                                 patience = 5,
+                                 loss = "l1", # can be one of ["l1", "mse", "frobenius"]
+                                 max_snr_db = 12,
+                                 min_snr_db = -6)
+    
     if model_name == "unet":
         model_hparams = Namespace(first_unet_channel_units = 32)
     elif model_name == "convpinv":
         model_hparams = Namespace(conv_channels = [32, 64],
                                   kernel_size = 3)
-    elif model_name == "degli" or model_name == "degliblock":
+    elif model_name == "degli":
         model_hparams = Namespace(hidden_channel = 32,
-                                  kernel_size = (3,3),
-                                  n_degli_repetitions = 200)
+                                  kernel_size = (5,3),
+                                  val_degli_rep = 3)
     else:
         model_hparams = Namespace()
-        
-    hparams = Namespace(batch_size = 1,
-                        lr = 1e-3,
-                        epochs = 70,
-                        patience = 20,
-                        num_workers = 0,
-                        device = device,
-                        # audio hparams
-                        sr = 16000,
-                        n_mels = 96,
-                        n_fft = 1024,
-                        n_channels = 1,
-                        hop_len = 256,
-                        audio_ms = 1040,
-                        audio_thresh = 0.05,
-                        min_noise_ms = 1000)
-    # more audio parameters
-    audio_len_ = int(hparams.sr * hparams.audio_ms // 1000)
-    n_frames_ = int(audio_len_ // hparams.hop_len + 1)
-    n_stft_ = int(hparams.n_fft//2 + 1)
     
-    hparams = Namespace(**vars(hparams),
+    audio_hparams = Namespace(sr = 16000,
+                              n_mels = 96,
+                              n_fft = 1024,
+                              n_channels = 1,
+                              hop_len = 256,
+                              audio_ms = 1040,
+                              min_noise_ms = 1000)
+    # Other useful audio parameters
+    audio_len_ = int(audio_hparams.sr * audio_hparams.audio_ms // 1000)
+    n_frames_ = int(audio_len_ // audio_hparams.hop_len + 1)
+    n_stft_ = int(audio_hparams.n_fft//2 + 1)
+    
+    hparams = Namespace(**vars(training_hparams),
                         **vars(model_hparams),
+                        device = device,
+                        num_workers = 0,
+                        **vars(audio_hparams),
                         audio_len = audio_len_,
                         n_frames = n_frames_,
                         n_stft = n_stft_)
@@ -77,7 +82,8 @@ SEED = 42
 set_seeds(SEED)
 
 # Directories
-MAIN_DIR = Path(__file__).parent
+MAIN_DIR = Path(__file__).parent.parent
+sys.path.append(MAIN_DIR)
 
 # Data
 DATA_DIR = MAIN_DIR / "data"
@@ -88,31 +94,12 @@ WEIGHTS_DIR = MAIN_DIR / "weights"
 
 # Results
 RESULTS_DIR = MAIN_DIR / "results"
-GLA_RESULTS_DIR = RESULTS_DIR / "gla"
-WINDOWS_IMG_DIR = RESULTS_DIR / "windows"
-MELSPEC2SPEC_DIR = RESULTS_DIR / "melspec2spec"
 SPEC2WAV_DIR = RESULTS_DIR / "spec2wav"
+MELSPEC2SPEC_DIR = RESULTS_DIR / "melspec2spec"
+COMPARISONS_DIR = RESULTS_DIR / "comparisons"
 
-if not os.path.exists(RESULTS_DIR):
-    os.mkdir(RESULTS_DIR)
-    
-if not os.path.exists(DATA_DIR):
-    os.mkdir(DATA_DIR)
-    
-if not os.path.exists(WINDOWS_IMG_DIR):
-    os.mkdir(WINDOWS_IMG_DIR)  
-    
-if not os.path.exists(GLA_RESULTS_DIR):
-    os.mkdir(GLA_RESULTS_DIR)
-    
-if not os.path.exists(STFT_DIR):
-    os.mkdir(STFT_DIR)
+_dirs = [WEIGHTS_DIR, RESULTS_DIR, SPEC2WAV_DIR, MELSPEC2SPEC_DIR, COMPARISONS_DIR]
 
-if not os.path.exists(WEIGHTS_DIR):
-    os.mkdir(WEIGHTS_DIR)
-
-if not os.path.exists(MELSPEC2SPEC_DIR):
-    os.mkdir(MELSPEC2SPEC_DIR)
-
-if not os.path.exists(SPEC2WAV_DIR):
-    os.mkdir(SPEC2WAV_DIR)
+for dir in _dirs:
+    if not os.path.exists(dir):
+        os.mkdir(dir)

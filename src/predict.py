@@ -11,7 +11,7 @@ from metrics import mse, si_sdr_metric
 from networks.build_model import build_model
 from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr,
                               open_audio, to_db, to_linear)
-from utils.plots import plot_prediction
+from utils.plots import plot_melspec_prediction
 
 
 def predict(args):
@@ -61,7 +61,7 @@ def predict(args):
     stftspec_gla_db_norm =  normalize_db_spectr(to_db(torch.abs(torch.as_tensor(librosa.stft(y=out_hat, 
                                                                                              n_fft=hparams.n_fft,
                                                                                              hop_length=hparams.hop_len)))))
-    plot_prediction(denormalize_db_spectr(stftspec_db_norm).cpu().numpy().squeeze(), 
+    plot_melspec_prediction(denormalize_db_spectr(stftspec_db_norm).cpu().numpy().squeeze(), 
                     denormalize_db_spectr(stftspec_hat_db_norm).cpu().detach().numpy().squeeze(), 
                     hparams, 
                     prediction_img_path)
