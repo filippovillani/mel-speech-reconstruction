@@ -33,6 +33,10 @@ class Tester:
             self.model = build_model(self.hprms, args.model_name, self.experiment_weights_dir, best_weights=True)
             self.model.repetitions = args.num_blocks
             self.model.eval()
+        elif self.model_name == "pinv":
+            self.hprms = config.create_hparams()
+            self.model = build_model(self.hprms, args.model_name)
+            self.model.eval()
         else:
             raise ValueError(f'model_name must be one of ["convpinv", "degli", "gla", "fgla"], \
                                     received: {args.model_name}')
@@ -78,11 +82,11 @@ class Tester:
                         x_wav_hat = fast_griffin_lim(x_stft_mag, n_iter=self.gla_iter).squeeze()
                     
                     # Compute metrics:
-                    stoi_metric = self.stoi(x_wav, x_wav_hat) 
+                    stoi_metric = self.stoi(x_wav_hat, x_wav) 
                     test_scores["stoi"] += ((1./(n+1))*(stoi_metric-test_scores["stoi"]))
                         
                     try:
-                        pesq_metric = self.pesq(x_wav, x_wav_hat) 
+                        pesq_metric = self.pesq(x_wav_hat, x_wav) 
                     except:
                         pesq_metric = test_scores["pesq"]
                     test_scores["pesq"] += ((1./(n+1))*(pesq_metric-test_scores["pesq"]))
@@ -91,8 +95,8 @@ class Tester:
                 scores_to_print = str(test_scores)
                 pbar.set_postfix_str(scores_to_print)
                 
-                if n == 50:
-                    break
+                # if n == 50:
+                #     break
                 
         save_to_json(test_scores, self.test_metrics_path)    
 
@@ -150,7 +154,7 @@ if __name__ == "__main__":
                         default='spec2wav')
     
     parser.add_argument('--model_name',
-                        choices = ["convpinv", "fgla", "gla", "degli"],
+                        choices = ["convpinv", "pinv", "fgla", "gla", "degli"],
                         help = "models: unet, librosa (evaluates librosa.feature.inverse.mel_to_stft())," 
                         "convpinv (simple CNN + pseudoinverse melfb), pinv (pseudoinverse melfb baseline)",
                         type=str,
@@ -158,11 +162,11 @@ if __name__ == "__main__":
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='test2')
+                        default='degli_B1_deglidata_fromnoiseM6P12')
     
     parser.add_argument('--num_blocks',
                         type=int,
-                        default=10)
+                        default=100)
     
     parser.add_argument('--num_iter',
                         type=int,
