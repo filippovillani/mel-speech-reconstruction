@@ -14,22 +14,23 @@ def create_hparams(model_name: str = None):   # training hparams
     
     training_hparams = Namespace(batch_size = 1,
                                  lr = 1e-4,
-                                 degli_data_lr = 1e-6,
                                  epochs = 70,
                                  patience = 5,
-                                 loss = "l1", # can be one of ["l1", "complexmse", "mse", "frobenius"]
-                                 max_snr_db = 12,
-                                 min_snr_db = -6)
+                                 loss = "mse") # can be one of ["l1", "complexmse", "mse", "frobenius"]
+                                 
     
     if model_name == "unet":
         model_hparams = Namespace(first_unet_channel_units = 32)
     elif model_name == "convpinv":
-        model_hparams = Namespace(conv_channels = [32, 64],
-                                  kernel_size = 3)
+        model_hparams = Namespace(conv_channels = [64, 32],
+                                  kernel_size = (5,3))
     elif model_name == "degli":
         model_hparams = Namespace(hidden_channel = 32,
                                   kernel_size = (5,3),
-                                  val_degli_rep = 3)
+                                  val_degli_rep = 3,
+                                  degli_data_lr = 1e-6,
+                                  max_snr_db = 12,
+                                  min_snr_db = -6)
     else:
         model_hparams = Namespace()
     
