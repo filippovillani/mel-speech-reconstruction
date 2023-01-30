@@ -93,6 +93,7 @@ class Trainer:
                 if self.task == "melspec2spec":
                     x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch)
                     x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze()
+                    x_stftspec_db_norm = x_stftspec_db_norm.squeeze()
                     
                     loss = self.loss_fn(x_stftspec_db_norm, x_stftspec_hat_db_norm)
                     train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
@@ -143,8 +144,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                if n == 30:
-                    break
+                # if n == 30:
+                #     break
 
             # Evaluate on the validation set
             val_scores = self.eval_model(model = self.model, 
@@ -279,14 +280,14 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in test_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                if n == 30:
-                    break  
+                # if n == 30:
+                #     break  
                  
         return test_scores
 
     
     def _set_hparams(self, resume_training):
-# OK
+
         if resume_training:
             self.hprms = config.load_config(self.config_path)
         else:
@@ -294,7 +295,7 @@ class Trainer:
             config.save_config(self.hprms, self.config_path)
     
     def _set_loss(self, loss: str):
-# OK   
+   
         if loss == "l1":
             self.loss_fn = torch.nn.L1Loss()
         elif loss == "mse":
@@ -308,7 +309,7 @@ class Trainer:
                    task, 
                    experiment_name, 
                    data_degli_name: None):
-# OK   
+   
         if task == "melspec2spec":
             results_dir = config.MELSPEC2SPEC_DIR 
         elif task == "spec2wav":
@@ -336,7 +337,7 @@ class Trainer:
             os.mkdir(self.experiment_weights_dir) 
             
     def _update_training_state(self, train_scores, val_scores):
-# OK
+
         train_scores = {k: round(float(v), 4) for k, v in train_scores.items() if v != 0.}
         val_scores = {k: round(float(v), 4) for k, v in val_scores.items() if v != 0.}
         
@@ -394,16 +395,16 @@ if __name__ == "__main__":
     parser.add_argument('--model_name',
                         type=str,
                         choices=["unet", "convpinv", "degli"],
-                        default='degli')
+                        default='convpinv')
     
     parser.add_argument('--task',
                         type=str,
                         choices=["melspec2spec", "spec2wav"],
-                        default='spec2wav')
+                        default='melspec2spec')
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='test2')
+                        default='convpinv_C64_32_1040ms')
     
     parser.add_argument('--resume_training',
                         action='store_true',
