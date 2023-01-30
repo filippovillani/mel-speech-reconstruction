@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
-import librosa 
-
+import torch.nn.functional as F
 class ContractingBlock(nn.Module):
     def __init__(self,
                  in_channels,
@@ -69,13 +68,8 @@ class ExpandingBlock(nn.Module):
         super(ExpandingBlock, self).__init__()
         
         out_channels = in_channels // 2
-        if last_block:
-            self.upconv = nn.Conv2d(in_channels = in_channels, 
-                                    out_channels = out_channels, 
-                                    kernel_size = (4,3),
-                                    padding = (2,1))
-        else:
-            self.upconv = nn.Conv2d(in_channels, out_channels, kernel_size, padding='same')
+
+        self.upconv = nn.Conv2d(in_channels, out_channels, kernel_size, padding='same')
         self.upsamp = nn.Upsample(scale_factor=2, 
                                 mode='bilinear', 
                                 align_corners=True)
@@ -104,7 +98,10 @@ class ExpandingBlock(nn.Module):
         """
         x = self.upsamp(x)
         x = self.upconv(x)
+        if x.shape != x_cat.shape:
+            x = self._reshape_x_for_cat(x, x_cat)
         x = torch.cat((x, x_cat), axis=1) 
+
         
         x = self.convE1(x) 
         x = self.bnE1(x) 
@@ -116,6 +113,21 @@ class ExpandingBlock(nn.Module):
         
         return out
     
+    def _reshape_x_for_cat(self, x, x_cat):
+        x_shape = x.shape
+        x_cat_shape = x_cat.shape
+        
+        # Find the difference in shape between x and x_cat
+        pad_sizes = [x_cat_shape[i] - x_shape[i] for i in range(len(x_shape))]
+        
+        # Add zeros to the last dimension of x
+        pad = []
+        for n in range(len(pad_sizes)-1,-1,-1):
+            pad.extend([0, pad_sizes[n]])
+        pad = tuple(pad)
+        x = F.pad(x, pad=pad, mode='constant', value=0)
+
+        return x
 
 class OutBlock(nn.Module):
     def __init__(self,
@@ -146,28 +158,4 @@ class OutBlock(nn.Module):
         x = self.convOut2(x)
         x = self.reluOut2(x)
 
-        # Try to normalize each batch independently
-        out = x / torch.max(x)
-        
-        return out
-
-class PInvBlock(nn.Module):
-    def __init__(self, hparams):
-
-        super(PInvBlock, self).__init__()
-        self.melfb = torch.as_tensor(librosa.filters.mel(sr = hparams.sr, 
-                                                         n_fft = hparams.n_fft, 
-                                                         n_mels = hparams.n_mels)).to(hparams.device)
-        
-    
-    def forward(self, melspec):
-        """
-        Args:
-            melspec (torch.Tensor): mel spectrogram in dB normalized in [0, 1]
-
-        Returns:
-            _type_: _description_
-        """
-        stft_hat = torch.clamp(torch.matmul(torch.linalg.pinv(self.melfb), melspec), min=0, max=1)
-        
-        return stft_hat
+        return x

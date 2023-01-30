@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from .layers import ContractingBlock, ExpandingBlock, PInvBlock, OutBlock
+from .layers import ContractingBlock, ExpandingBlock, OutBlock
 
 class UNet(nn.Module):
     def __init__(self, hparams):
@@ -8,10 +8,10 @@ class UNet(nn.Module):
         super(UNet, self).__init__()
         self.device = hparams.device
 
-        self.pinvblock = PInvBlock(hparams)
         self.contrblock1 = ContractingBlock(in_channels = hparams.n_channels,
                                             out_channels = hparams.first_unet_channel_units,
                                             kernel_size = hparams.kernel_size)
+        
         self.contrblock2 = ContractingBlock(in_channels = hparams.first_unet_channel_units,
                                             kernel_size = hparams.kernel_size)
 
@@ -31,8 +31,8 @@ class UNet(nn.Module):
                                            last_block = True)
         self.outblock = OutBlock(in_channels = hparams.first_unet_channel_units)
         
-    def forward(self, melspec):
-        stft_hat = self.pinvblock(melspec)
+    def forward(self, stft_hat):
+        
         x, x_cat1 = self.contrblock1(stft_hat)
         x, x_cat2 = self.contrblock2(x)
         x, _ = self.contrblock3(x)

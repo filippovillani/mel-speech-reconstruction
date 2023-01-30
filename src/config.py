@@ -19,9 +19,10 @@ def create_hparams(model_name: str = None):   # training hparams
                                  loss = "mse") # can be one of ["l1", "complexmse", "mse", "frobenius"]
                                  
     
-    if model_name == "unet":
-        model_hparams = Namespace(first_unet_channel_units = 32)
-    elif model_name == "convpinv":
+    if model_name in ["unet", "pinvunet"]:
+        model_hparams = Namespace(first_unet_channel_units = 32,
+                                  kernel_size = (5,3))
+    elif model_name == "pinvconv":
         model_hparams = Namespace(conv_channels = [64, 32],
                                   kernel_size = (5,3))
     elif model_name == "degli":
@@ -35,7 +36,7 @@ def create_hparams(model_name: str = None):   # training hparams
         model_hparams = Namespace()
     
     audio_hparams = Namespace(sr = 16000,
-                              n_mels = 96,
+                              n_mels = 80,
                               n_fft = 1024,
                               n_channels = 1,
                               hop_len = 256,

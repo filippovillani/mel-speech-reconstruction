@@ -78,9 +78,9 @@ if __name__ == "__main__":
         
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', 
-                        choices = ["unet", "librosa", "convpinv", "pinv"],
+                        choices = ["unet", "librosa", "pinvconv", "pinv"],
                         type=str,
-                        default = 'convpinv')
+                        default = 'pinvconv')
     parser.add_argument('--weights_dir',
                         type=str,
                         default='test')

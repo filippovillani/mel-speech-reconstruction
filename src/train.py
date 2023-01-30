@@ -394,8 +394,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name',
                         type=str,
-                        choices=["unet", "convpinv", "degli"],
-                        default='convpinv')
+                        choices=["unet", "pinvconv", "pinvunet", "degli"],
+                        default='pinvunet')
     
     parser.add_argument('--task',
                         type=str,
@@ -404,7 +404,7 @@ if __name__ == "__main__":
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='convpinv_C64_32_1040ms')
+                        default='pinvunet')
     
     parser.add_argument('--resume_training',
                         action='store_true',
