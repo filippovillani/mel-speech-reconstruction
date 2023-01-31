@@ -14,7 +14,7 @@ from tqdm import tqdm
 import config
 from dataset import build_dataloader
 from metrics import SI_SDR
-from losses import ComplexMSELoss, FrobeniusLoss
+from losses import ComplexMSELoss, FrobeniusLoss, l2_regularization
 from networks.build_model import build_model
 from utils.audioutils import (compute_wav, denormalize_db_spectr,
                               normalize_db_spectr, to_db, to_linear)
@@ -95,6 +95,11 @@ class Trainer:
                     x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze(1)
                     
                     loss = self.loss_fn(x_stftspec_db_norm, x_stftspec_hat_db_norm)
+                    
+                    if self.hprms.weights_decay is not None:
+                        l2_reg = l2_regularization(self.model)
+                        loss += self.hprms.weights_decay * l2_reg
+                        
                     train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
                     loss.backward()  
                     self.optimizer.step()    
@@ -403,7 +408,7 @@ if __name__ == "__main__":
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='pinvunet_residual')
+                        default='pinvunet_residual_reg')
     
     parser.add_argument('--resume_training',
                         action='store_true',

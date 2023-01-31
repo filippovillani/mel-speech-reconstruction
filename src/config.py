@@ -14,6 +14,7 @@ def create_hparams(model_name: str = None):   # training hparams
     
     training_hparams = Namespace(batch_size = 1,
                                  lr = 1e-4,
+                                 weights_decay = 1e-3,
                                  epochs = 70,
                                  patience = 20,
                                  loss = "mse") # can be one of ["l1", "complexmse", "mse", "frobenius"]

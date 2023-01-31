@@ -1,6 +1,14 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F      
 
+def l2_regularization(model):
+    
+    l2_reg = 0.
+    for param in model.parameters():
+        l2_reg += torch.linalg.norm(param)
+        
+    return l2_reg
 
 class ComplexMSELoss(nn.Module):
     def __init__(self):
