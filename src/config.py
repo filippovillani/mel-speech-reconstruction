@@ -15,13 +15,14 @@ def create_hparams(model_name: str = None):   # training hparams
     training_hparams = Namespace(batch_size = 1,
                                  lr = 1e-4,
                                  epochs = 70,
-                                 patience = 5,
+                                 patience = 20,
                                  loss = "mse") # can be one of ["l1", "complexmse", "mse", "frobenius"]
                                  
     
     if model_name in ["unet", "pinvunet"]:
         model_hparams = Namespace(first_unet_channel_units = 32,
-                                  kernel_size = (5,3))
+                                  kernel_size = (5,3),
+                                  drop_rate = 0.2)
     elif model_name == "pinvconv":
         model_hparams = Namespace(conv_channels = [64, 32],
                                   kernel_size = (5,3))

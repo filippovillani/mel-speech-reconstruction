@@ -92,8 +92,7 @@ class Trainer:
                 
                 if self.task == "melspec2spec":
                     x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch)
-                    x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze()
-                    x_stftspec_db_norm = x_stftspec_db_norm.squeeze()
+                    x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze(1)
                     
                     loss = self.loss_fn(x_stftspec_db_norm, x_stftspec_hat_db_norm)
                     train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
@@ -144,7 +143,7 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                # if n == 30:
+                # if n == 500:
                 #     break
 
             # Evaluate on the validation set
@@ -243,7 +242,7 @@ class Trainer:
                 
                 if task == "melspec2spec":
                     x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch)
-                    x_stftspec_hat_db_norm = model(x_melspec_db_norm).squeeze()
+                    x_stftspec_hat_db_norm = model(x_melspec_db_norm).squeeze(1)
                     
                     loss = self.loss_fn(x_stftspec_db_norm, x_stftspec_hat_db_norm)
                     test_scores["loss"] += ((1./(n+1))*(loss-test_scores["loss"]))
@@ -404,7 +403,7 @@ if __name__ == "__main__":
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='pinvunet')
+                        default='pinvunet_residual')
     
     parser.add_argument('--resume_training',
                         action='store_true',

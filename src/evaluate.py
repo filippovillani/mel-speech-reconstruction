@@ -154,7 +154,7 @@ if __name__ == "__main__":
                         default='spec2wav')
     
     parser.add_argument('--model_name',
-                        choices = ["pinvconv", "pinv", "fgla", "gla", "degli"],
+                        choices = ["pinvconv", "pinvunet", "pinv", "fgla", "gla", "degli"],
                         help = "models: unet, librosa (evaluates librosa.feature.inverse.mel_to_stft())," 
                         "pinvconv (simple CNN + pseudoinverse melfb), pinv (pseudoinverse melfb baseline)",
                         type=str,

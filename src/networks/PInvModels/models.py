@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from .layers import PInvBlock, ConvBlock
+from networks.UNet.models import UNet
 
 
 class PInv(nn.Module):
@@ -16,7 +17,24 @@ class PInv(nn.Module):
         x = self.pinvblock(melspec)
         stft_hat = x / torch.max(x)
         return stft_hat
-    
+
+
+class PInvUNet(nn.Module):
+    def __init__(self, hparams):
+        super(PInvUNet, self).__init__()
+        
+        self.pinv = PInvBlock(hparams)
+        self.unet = UNet(hparams)
+        self.relu = nn.ReLU()
+        
+    def forward(self, x_melspec):
+        
+        x_stft_hat = self.pinv(x_melspec)
+        x_residual = self.unet(x_stft_hat)
+        x_stft_hat = x_stft_hat - x_residual
+        x_stft_hat = self.relu(x_stft_hat)
+        return x_stft_hat
+
 class PInvConv(nn.Module):
     def __init__(self, hparams):
 

@@ -1,10 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+
 class ContractingBlock(nn.Module):
     def __init__(self,
                  in_channels,
                  kernel_size,
+                 drop_rate,
                  out_channels = None,
                  last_block = False):
 
@@ -27,7 +30,7 @@ class ContractingBlock(nn.Module):
         nn.init.kaiming_normal_(self.convC2.weight)
         self.bnC2 = nn.BatchNorm2d(out_channels)
         self.reluC2 = nn.ReLU() 
-        self.dropC = nn.Dropout(0.3)
+        self.dropC = nn.Dropout(drop_rate)
         self.poolC = nn.MaxPool2d(kernel_size=2)
 
     def forward(self, x):
@@ -63,7 +66,7 @@ class ExpandingBlock(nn.Module):
     def __init__(self,
                  in_channels,
                  kernel_size,
-                 last_block = False):
+                 drop_rate):
 
         super(ExpandingBlock, self).__init__()
         
@@ -83,7 +86,7 @@ class ExpandingBlock(nn.Module):
         nn.init.kaiming_normal_(self.convE2.weight)
         self.bnE2 = nn.BatchNorm2d(out_channels)
         self.reluE2 = nn.ReLU() 
-        self.dropE = nn.Dropout(0.3)
+        self.dropE = nn.Dropout(drop_rate)
         
     def forward(self, x, x_cat): 
         """ 

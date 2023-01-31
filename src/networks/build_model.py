@@ -1,8 +1,7 @@
 import torch
 
-from networks.PInvConv.models import PInv, PInvConv
+from networks.PInvModels.models import PInv, PInvConv, PInvUNet
 from networks.UNet.models import UNet
-from networks.PInvUNet.model import PInvUNet
 from networks.DeGLI.models import DeGLI
 
 def build_model(hparams,
