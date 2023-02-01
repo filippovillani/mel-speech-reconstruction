@@ -77,11 +77,11 @@ def train_model(args):
         print(f'\n§ Train epoch: {training_state["epochs"]}\n')
         
         model.train()
-        train_loss = 0.
-        train_score = 0.
         start_epoch = time()        
-   
-        for n, batch in enumerate(tqdm(train_dl, desc=f'Epoch {training_state["epochs"]}')):   
+        train_scores = {"loss": 0.,
+                        "si-sdr": 0.}
+        pbar = tqdm(train_dl, desc=f'Epoch {training_state["epochs"]}', postfix='[]')
+        for n, batch in enumerate(pbar):   
             optimizer.zero_grad()  
             stftspec_db_norm = batch["spectrogram"].float().to(hparams.device)
             melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm).unsqueeze(1)
@@ -89,16 +89,22 @@ def train_model(args):
             stftspec_hat_db_norm = model(melspec_db_norm).squeeze()
             
             loss = mse(stftspec_db_norm, stftspec_hat_db_norm)
-            train_loss += ((1./(n+1))*(loss-train_loss))
+            train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
             loss.backward()  
             optimizer.step()
 
             snr_metric = si_snr_metric(to_linear(denormalize_db_spectr(stftspec_db_norm)),
                                        to_linear(denormalize_db_spectr(stftspec_hat_db_norm)))
-            train_score += ((1./(n+1))*(snr_metric-train_score))
+            train_scores["si-sdr"] += ((1./(n+1))*(snr_metric-train_scores["si-sdr"]))
 
-        training_state["train_loss_hist"].append(train_loss.item())
-        training_state["train_score_hist"].append(train_score.item())
+            if n == 100:
+                break
+        
+            scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items()})
+            pbar.set_postfix_str(scores_to_print)
+            
+        training_state["train_loss_hist"].append(train_scores["loss"].item())
+        training_state["train_score_hist"].append(train_scores["si-sdr"].item())
         print(f'Training loss:     {training_state["train_loss_hist"][-1]:.4f}')
         print(f'Training SI-SNR:   {training_state["train_score_hist"][-1]:.4f} dB\n')
         

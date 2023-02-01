@@ -10,7 +10,7 @@ def create_hparams():   # training hparams
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
-    hparams = Namespace(batch_size = 2,
+    hparams = Namespace(batch_size = 1,
                         epochs = 70,
                         patience = 20,
                         # audio and dataset hparams
@@ -20,7 +20,7 @@ def create_hparams():   # training hparams
                         n_fft = 1024,
                         n_channels = 1,
                         hop_len = 256,
-                        audio_ms = 4080,
+                        audio_ms = 1020,
                         min_noise_ms = 1000,
                         num_workers = 0,
                         # model hparams
