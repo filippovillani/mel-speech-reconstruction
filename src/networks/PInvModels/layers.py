@@ -3,7 +3,7 @@ import torch.nn as nn
 import librosa 
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size):
+    def __init__(self, in_channels, out_channels, kernel_size, drop_rate):
         
         super(ConvBlock, self).__init__()
 
@@ -11,13 +11,15 @@ class ConvBlock(nn.Module):
                               out_channels = out_channels,
                               kernel_size = kernel_size,
                               padding = 'same')
-        self.bn = nn.BatchNorm2d(out_channels)
+        # self.bn = nn.BatchNorm2d(out_channels)
+        self.drop = nn.Dropout(drop_rate)
         self.relu = nn.ReLU()
         
     def forward(self, x):
         
         x = self.conv(x)
-        x = self.bn(x)
+        # x = self.bn(x)
+        x = self.drop(x)
         x = self.relu(x)
         
         return x
@@ -39,6 +41,6 @@ class PInvBlock(nn.Module):
         Returns:
             _type_: _description_
         """
-        stft_hat = torch.clamp(torch.matmul(torch.linalg.pinv(self.melfb), melspec), min=0, max=1)
+        stft_hat = torch.matmul(torch.linalg.pinv(self.melfb), melspec)
         
         return stft_hat
