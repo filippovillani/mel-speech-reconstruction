@@ -54,13 +54,13 @@ class Trainer:
             self.model = build_model(self.hprms, args.model_name, self.experiment_weights_dir, best_weights = False)
             self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)        
             self.optimizer.load_state_dict(torch.load(self.ckpt_opt_path)) 
-            self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=2)
+            self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=self.hprms.lr_patience)
             self.lr_sched.load_state_dict(torch.load(self.ckpt_sched_path))
         else:        
             # Initialize model, optimizer and lr scheduler
             self.model = build_model(self.hprms, args.model_name)
             self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)
-            self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=2)
+            self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=self.hprms.lr_patience)
                
         if self.data_degli_name is not None:
             data_degli_hprms = config.load_config(self.data_degli_config_path)
@@ -148,8 +148,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                # if n == 100:
-                #     break
+                if n == 100:
+                    break
 
             # Evaluate on the validation set
             val_scores = self.eval_model(model = self.model, 
@@ -184,8 +184,10 @@ class Trainer:
         x_stftspec = torch.abs(x_stft).float()
         x_melspec = torch.matmul(self.melfb, x_stftspec**2).unsqueeze(1)
         
-        x_stftspec_db_norm = normalize_db_spectr(to_db(x_stftspec))
-        x_melspec_db_norm = normalize_db_spectr(to_db(torch.sqrt(x_melspec)))
+        x_stftspec_db_norm = normalize_db_spectr(to_db(x_stftspec)).float()
+        # x_stftspec_db_norm = normalize_db_spectr(to_db(torch.abs(x_stft))).float()
+        x_melspec_db_norm = normalize_db_spectr(to_db(x_melspec)).float()
+        # x_melspec_db_norm = torch.matmul(self.melfb, x_stftspec_db_norm).unsqueeze(1)
 
         return x_stftspec_db_norm, x_melspec_db_norm
     
@@ -291,8 +293,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in test_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                # if n == 50:
-                #     break  
+                if n == 50:
+                    break  
                  
         return test_scores
 

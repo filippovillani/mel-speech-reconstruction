@@ -13,21 +13,22 @@ def create_hparams(model_name: str = None):   # training hparams
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     training_hparams = Namespace(batch_size = 1,
-                                 lr = 1e-3,
-                                 weights_decay = None,
+                                 lr = 1e-4,
+                                 weights_decay = 1e-4,
                                  epochs = 70,
                                  patience = 20,
+                                 lr_patience = 4,
                                  loss = "mse") # can be one of ["l1", "complexmse", "mse", "frobenius"]
                                  
     
     if model_name in ["unet", "pinvunet"]:
         model_hparams = Namespace(first_unet_channel_units = 32,
                                   kernel_size = (5,3),
-                                  drop_rate = 0.2)
+                                  drop_rate = 0.1)
     elif model_name == "pinvconv":
         model_hparams = Namespace(conv_channels = [64, 32],
-                                  kernel_size = (5,3),
-                                  drop_rate = 0.2)
+                                  kernel_size = (3,3),
+                                  drop_rate = 0.)
     elif model_name == "degli":
         model_hparams = Namespace(hidden_channel = 32,
                                   kernel_size = (5,3),
@@ -39,7 +40,7 @@ def create_hparams(model_name: str = None):   # training hparams
         model_hparams = Namespace()
     
     audio_hparams = Namespace(sr = 16000,
-                              n_mels = 80,
+                              n_mels = 100,
                               n_fft = 1024,
                               n_channels = 1,
                               hop_len = 256,

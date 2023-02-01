@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import librosa 
 
+from utils.audioutils import min_max_normalization
+
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, drop_rate):
         
@@ -11,15 +13,15 @@ class ConvBlock(nn.Module):
                               out_channels = out_channels,
                               kernel_size = kernel_size,
                               padding = 'same')
-        # self.bn = nn.BatchNorm2d(out_channels)
+        self.bn = nn.BatchNorm2d(out_channels)
         self.drop = nn.Dropout(drop_rate)
         self.relu = nn.ReLU()
         
     def forward(self, x):
         
         x = self.conv(x)
-        # x = self.bn(x)
-        x = self.drop(x)
+        x = self.bn(x)
+        # x = self.drop(x)
         x = self.relu(x)
         
         return x
@@ -42,5 +44,6 @@ class PInvBlock(nn.Module):
             _type_: _description_
         """
         stft_hat = torch.matmul(torch.linalg.pinv(self.melfb), melspec)
+        stft_hat = min_max_normalization(stft_hat)
         
         return stft_hat
