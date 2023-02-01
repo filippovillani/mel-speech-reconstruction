@@ -97,8 +97,8 @@ def train_model(args):
                                        to_linear(denormalize_db_spectr(stftspec_hat_db_norm)))
             train_scores["si-sdr"] += ((1./(n+1))*(snr_metric-train_scores["si-sdr"]))
 
-            if n == 100:
-                break
+            # if n == 100:
+            #     break
         
             scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items()})
             pbar.set_postfix_str(scores_to_print)
