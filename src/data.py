@@ -3,6 +3,7 @@ Generate and save stft as .pt files
 '''
 import os
 from argparse import Namespace
+from pathlib import Path
 
 import librosa
 import numpy as np
@@ -14,9 +15,8 @@ import config
 from utils.audioutils import standardization
 
 
-def build_timit_df():
+def build_timit_df(timit_dir: Path):
     
-    timit_dir = config.DATA_DIR / 'timit'
     timit_metadata_path = timit_dir / 'train_data.csv'
     timit_df = pd.read_csv(timit_metadata_path)
     timit_df = timit_df.loc[timit_df['is_audio']==True].loc[timit_df['is_converted_audio']==True]
@@ -28,7 +28,7 @@ def build_timit_df():
     
     return timit_df
 
-def split_dataframes(df,
+def split_dataframes(df: pd.DataFrame,
                      split_ratio: list = [0.9, 0.05, 0.05]):
     
     df_len = len(df)
@@ -43,10 +43,10 @@ def split_dataframes(df,
 
 def build_data(hparams: Namespace,
                df: pd.DataFrame,
-               type: str = "train"):
-    
-    out_dir = config.STFT_DIR / type
-    
+               out_dir: Path,
+               ds_type: str = "train"):
+
+    out_dir = out_dir / ds_type
     if not os.path.exists(out_dir):
         os.mkdir(out_dir) 
         
@@ -96,12 +96,13 @@ def build_data(hparams: Namespace,
 
 def main():
 
+    timit_dir = config.DATA_DIR / 'timit'
     hparams = config.create_hparams()
-    df = build_timit_df()
+    df = build_timit_df(timit_dir)
     train_df, val_df, test_df = split_dataframes(df)
-    build_data(hparams, train_df, "train")
-    build_data(hparams, val_df, "validation")
-    build_data(hparams, test_df, "test")
+    build_data(hparams, train_df, config.STFT_DIR, "train")
+    build_data(hparams, val_df, config.STFT_DIR, "validation")
+    build_data(hparams, test_df, config.STFT_DIR, "test")
 
 
 if __name__ == "__main__":

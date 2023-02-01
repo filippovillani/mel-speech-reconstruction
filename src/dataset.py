@@ -1,5 +1,6 @@
 import os
 from argparse import Namespace
+from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -7,12 +8,12 @@ from torch.utils.data import DataLoader, Dataset
 
 def build_dataloader(hparams: Namespace,
                      data_dir: str,
-                     set_type: str = "train") -> DataLoader:
+                     ds_type: str = "train") -> DataLoader:
     
-    shuffle = True if set_type == "train" else False
+    shuffle = True if ds_type == "train" else False
  
     ds = STFTDataset(data_dir, 
-                     set_type = set_type)
+                     ds_type = ds_type)
     
     dataloader = DataLoader(ds, 
                             batch_size = hparams.batch_size,
@@ -24,12 +25,11 @@ def build_dataloader(hparams: Namespace,
     
 class STFTDataset(Dataset):
     def __init__(self, 
-                 data_dir: str,
-                 set_type: str = "train"):
+                 data_dir: Path,
+                 ds_type: str = "train"):
         
         super(STFTDataset, self).__init__()
-        self.data_dir = data_dir
-        self.spectr_dir = data_dir / "stft" / set_type
+        self.spectr_dir = data_dir / "stft" / ds_type
         self.spectr_list_path = [self.spectr_dir / path for path in os.listdir(self.spectr_dir)]
        
     def __getitem__(self, idx):
