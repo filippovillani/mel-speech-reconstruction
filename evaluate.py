@@ -64,8 +64,10 @@ def eval_model(model: torch.nn.Module,
             score = si_snr_metric(to_linear(denormalize_db_spectr(stftspec_hat_db_norm)), 
                                     to_linear(denormalize_db_spectr(stftspec_db_norm)))
             val_score += ((1./(n+1))*(score-val_score))
-            if n == 50:
-                break
+
+            # if n == 50:
+            #     break
+            
     return val_score, val_loss
    
 

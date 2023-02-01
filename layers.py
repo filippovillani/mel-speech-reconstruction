@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import librosa 
 
+from audioutils import min_max_normalization
+
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size):
         
@@ -39,7 +41,8 @@ class PInvBlock(nn.Module):
         Returns:
             _type_: _description_
         """
-        stft_hat = torch.clamp(torch.matmul(torch.linalg.pinv(self.melfb), melspec), min=0, max=1)
+        stft_hat = torch.matmul(torch.linalg.pinv(self.melfb), melspec)
+        stft_hat = min_max_normalization(stft_hat)
         
         return stft_hat
     
