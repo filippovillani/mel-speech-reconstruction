@@ -103,8 +103,11 @@ class Tester:
     def _preprocess_mel2spec_batch(self, batch):
         
         x_stft = batch["stft"].to(self.hprms.device)
-        x_stftspec_db_norm = normalize_db_spectr(to_db(torch.abs(x_stft))).float()
-        x_melspec_db_norm = torch.matmul(self.melfb, x_stftspec_db_norm).unsqueeze(1)
+        x_stftspec = torch.abs(x_stft).float()
+        x_melspec = torch.matmul(self.melfb, x_stftspec**2).unsqueeze(1)
+        
+        x_stftspec_db_norm = normalize_db_spectr(to_db(x_stftspec))
+        x_melspec_db_norm = normalize_db_spectr(to_db(torch.sqrt(x_melspec)))
         
         return x_stftspec_db_norm, x_melspec_db_norm
     
@@ -137,7 +140,6 @@ class Tester:
     
 def main(args):
  
-    
     tester = Tester(args)    
     test_dl = build_dataloader(tester.hprms, config.DATA_DIR, "test")
     _ = tester.test_model(test_dl) 
@@ -151,18 +153,16 @@ if __name__ == "__main__":
     parser.add_argument('--task',
                         type=str,
                         choices=["melspec2spec", "spec2wav"],
-                        default='spec2wav')
+                        default='melspec2spec')
     
     parser.add_argument('--model_name',
                         choices = ["pinvconv", "pinvunet", "pinv", "fgla", "gla", "degli"],
-                        help = "models: unet, librosa (evaluates librosa.feature.inverse.mel_to_stft())," 
-                        "pinvconv (simple CNN + pseudoinverse melfb), pinv (pseudoinverse melfb baseline)",
                         type=str,
-                        default = 'degli')
+                        default = 'pinv')
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='degli_B1_deglidata_fromnoiseM6P12')
+                        default='test')
     
     parser.add_argument('--num_blocks',
                         type=int,

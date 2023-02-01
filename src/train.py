@@ -17,7 +17,7 @@ from metrics import SI_SDR
 from losses import ComplexMSELoss, FrobeniusLoss, l2_regularization
 from networks.build_model import build_model
 from utils.audioutils import (compute_wav, denormalize_db_spectr,
-                              normalize_db_spectr, to_db, to_linear)
+                              normalize_db_spectr, to_db, to_linear, min_max_normalization)
 from utils.plots import plot_train_hist, plot_train_hist_degli
 from utils.utils import save_to_json
 
@@ -148,7 +148,7 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                # if n == 500:
+                # if n == 100:
                 #     break
 
             # Evaluate on the validation set
@@ -181,9 +181,12 @@ class Trainer:
     def _preprocess_mel2spec_batch(self, batch):
         
         x_stft = batch["stft"].to(self.hprms.device)
-        x_stftspec_db_norm = normalize_db_spectr(to_db(torch.abs(x_stft))).float()
-        x_melspec_db_norm = torch.matmul(self.melfb, x_stftspec_db_norm).unsqueeze(1)
+        x_stftspec = torch.abs(x_stft).float()
+        x_melspec = torch.matmul(self.melfb, x_stftspec**2).unsqueeze(1)
         
+        x_stftspec_db_norm = normalize_db_spectr(to_db(x_stftspec))
+        x_melspec_db_norm = normalize_db_spectr(to_db(torch.sqrt(x_melspec)))
+
         return x_stftspec_db_norm, x_melspec_db_norm
     
     
@@ -250,6 +253,10 @@ class Trainer:
                     x_stftspec_hat_db_norm = model(x_melspec_db_norm).squeeze(1)
                     
                     loss = self.loss_fn(x_stftspec_db_norm, x_stftspec_hat_db_norm)
+                    if self.hprms.weights_decay is not None:
+                        l2_reg = l2_regularization(self.model)
+                        loss += self.hprms.weights_decay * l2_reg
+                        
                     test_scores["loss"] += ((1./(n+1))*(loss-test_scores["loss"]))
                     
                     sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
@@ -284,7 +291,7 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in test_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                # if n == 30:
+                # if n == 50:
                 #     break  
                  
         return test_scores
@@ -399,7 +406,7 @@ if __name__ == "__main__":
     parser.add_argument('--model_name',
                         type=str,
                         choices=["unet", "pinvconv", "pinvunet", "degli"],
-                        default='pinvunet')
+                        default='pinvconv')
     
     parser.add_argument('--task',
                         type=str,
@@ -408,7 +415,7 @@ if __name__ == "__main__":
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='pinvunet_residual_reg')
+                        default='test')
     
     parser.add_argument('--resume_training',
                         action='store_true',
