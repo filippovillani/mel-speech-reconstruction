@@ -9,11 +9,11 @@ from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
+from torchmetrics import ScaleInvariantSignalDistortionRatio
 from tqdm import tqdm
 
 import config
 from dataset import build_dataloader
-from metrics import SI_SDR
 from losses import ComplexMSELoss, FrobeniusLoss, l2_regularization
 from networks.build_model import build_model
 from utils.audioutils import (compute_wav, denormalize_db_spectr,
@@ -46,7 +46,7 @@ class Trainer:
         
         self.pesq = PerceptualEvaluationSpeechQuality(fs=self.hprms.sr, mode="wb")
         self.stoi = ShortTimeObjectiveIntelligibility(fs=self.hprms.sr)
-        self.sisdr = SI_SDR()
+        self.sisdr = ScaleInvariantSignalDistortionRatio().to(self.hprms.device)
         if args.resume_training:
             # Load model's weights, optimizer and scheduler from checkpoint
             with open(self.training_state_path, "r") as fp:
@@ -91,6 +91,7 @@ class Trainer:
                 self.optimizer.zero_grad()  
                 
                 if self.task == "melspec2spec":
+                    # TODO: TRY TO USE linear instead of db
                     x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch)
                     x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze(1)
                     
@@ -104,9 +105,9 @@ class Trainer:
                     loss.backward()  
                     self.optimizer.step()    
                     
-                    sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
-                                            to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
-                    train_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-train_scores["si-sdr"]))  
+                    sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)),
+                                            to_linear(denormalize_db_spectr(x_stftspec_db_norm))).detach()
+                    train_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-train_scores["si-sdr"]))
                                 
                 elif self.task == "spec2wav":
                     if self.data_degli_name is not None:
@@ -148,8 +149,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                # if n == 100:
-                #     break
+                if n == 100:
+                    break
 
             # Evaluate on the validation set
             val_scores = self.eval_model(model = self.model, 
@@ -261,8 +262,8 @@ class Trainer:
                         
                     test_scores["loss"] += ((1./(n+1))*(loss-test_scores["loss"]))
                     
-                    sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
-                                            to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
+                    sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)),
+                                            to_linear(denormalize_db_spectr(x_stftspec_db_norm)))
                     test_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-test_scores["si-sdr"]))  
                 
                 elif task == "spec2wav":
@@ -293,8 +294,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in test_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                # if n == 50:
-                #     break  
+                if n == 50:
+                    break  
                  
         return test_scores
 
