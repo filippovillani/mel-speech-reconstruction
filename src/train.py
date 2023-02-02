@@ -148,8 +148,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                if n == 100:
-                    break
+                # if n == 100:
+                #     break
 
             # Evaluate on the validation set
             val_scores = self.eval_model(model = self.model, 
@@ -186,7 +186,7 @@ class Trainer:
         
         x_stftspec_db_norm = normalize_db_spectr(to_db(x_stftspec)).float()
         # x_stftspec_db_norm = normalize_db_spectr(to_db(torch.abs(x_stft))).float()
-        x_melspec_db_norm = normalize_db_spectr(to_db(x_melspec)).float()
+        x_melspec_db_norm = normalize_db_spectr(to_db(torch.sqrt(x_melspec))).float()
         # x_melspec_db_norm = torch.matmul(self.melfb, x_stftspec_db_norm).unsqueeze(1)
 
         return x_stftspec_db_norm, x_melspec_db_norm
@@ -200,14 +200,6 @@ class Trainer:
             x_stft_noise = self._initialize_random_phase(x_stft)
             x_stft_noise = self.data_degli(x_stft_noise, torch.abs(x_stft).float())
         return x_stft, x_stft_noise
-    
-    
-    def _initialize_random_phase(self, x_stft):
-        
-        x_stft_mag = torch.abs(x_stft)
-        phase = torch.zeros_like(x_stft_mag)
-        x_stft = x_stft_mag * torch.exp(1j * phase)
-        return x_stft
         
     
     def _preprocess_degli_awgndata_batch(self, batch):
@@ -220,6 +212,14 @@ class Trainer:
         x_stft_noise = x_stft + noise
         
         return x_stft, x_stft_noise
+    
+    
+    def _initialize_random_phase(self, x_stft):
+        
+        x_stft_mag = torch.abs(x_stft)
+        phase = torch.zeros_like(x_stft_mag)
+        x_stft = x_stft_mag * torch.exp(1j * phase)
+        return x_stft
     
     
     def _create_noise(self, signal, max_snr_db = 12, min_snr_db = -6):
@@ -293,8 +293,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in test_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                if n == 50:
-                    break  
+                # if n == 50:
+                #     break  
                  
         return test_scores
 
