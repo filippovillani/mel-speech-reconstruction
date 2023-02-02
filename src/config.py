@@ -17,7 +17,7 @@ def create_hparams(model_name: str = None):   # training hparams
                                  weights_decay = 1e-4,
                                  epochs = 70,
                                  patience = 20,
-                                 lr_patience = 4,
+                                 lr_patience = 3,
                                  loss = "mse") # can be one of ["l1", "complexmse", "mse", "frobenius"]
                                  
     

@@ -112,9 +112,9 @@ class ExpandingBlock(nn.Module):
         x = self.convE2(x)
         x = self.bnE2(x)
         x = self.reluE2(x)
-        out = self.dropE(x)
+        x = self.dropE(x)
         
-        return out
+        return x
     
     def _reshape_x_for_cat(self, x, x_cat):
         x_shape = x.shape
