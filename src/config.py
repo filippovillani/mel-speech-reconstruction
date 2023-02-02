@@ -40,7 +40,7 @@ def create_hparams(model_name: str = None):   # training hparams
         model_hparams = Namespace()
     
     audio_hparams = Namespace(sr = 16000,
-                              n_mels = 100,
+                              n_mels = 80,
                               n_fft = 1024,
                               n_channels = 1,
                               hop_len = 256,

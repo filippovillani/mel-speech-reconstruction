@@ -4,6 +4,7 @@
     "weights_decay": 0.0001,
     "epochs": 70,
     "patience": 20,
+    "lr_patience": 4,
     "loss": "mse",
     "conv_channels": [
         64,
@@ -17,7 +18,7 @@
     "device": "cuda",
     "num_workers": 0,
     "sr": 16000,
-    "n_mels": 100,
+    "n_mels": 80,
     "n_fft": 1024,
     "n_channels": 1,
     "hop_len": 256,
