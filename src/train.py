@@ -17,10 +17,9 @@ from dataset import build_dataloader
 from losses import ComplexMSELoss, FrobeniusLoss, l2_regularization
 from networks.build_model import build_model
 from utils.audioutils import (compute_wav, denormalize_db_spectr,
-                              normalize_db_spectr, to_db, to_linear, min_max_normalization)
+                              normalize_db_spectr, to_db, to_linear)
 from utils.plots import plot_train_hist, plot_train_hist_degli
 from utils.utils import save_to_json
-
 
 class Trainer:
     def __init__(self, args):
@@ -91,7 +90,7 @@ class Trainer:
                 self.optimizer.zero_grad()  
                 
                 if self.task == "melspec2spec":
-                    # TODO: TRY TO USE linear instead of db
+
                     x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch)
                     x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze(1)
                     
@@ -107,7 +106,9 @@ class Trainer:
                     
                     sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)),
                                             to_linear(denormalize_db_spectr(x_stftspec_db_norm))).detach()
-                    train_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-train_scores["si-sdr"]))
+                    
+                    if not torch.isnan(sdr_metric):
+                        train_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-train_scores["si-sdr"]))
                                 
                 elif self.task == "spec2wav":
                     if self.data_degli_name is not None:
@@ -226,7 +227,7 @@ class Trainer:
     def _create_noise(self, signal, max_snr_db = 12, min_snr_db = -6):
     
         sdr_db = (max_snr_db - min_snr_db) * torch.rand((1)) + min_snr_db
-        sdr = torch.pow(10, sdr_db/10).to(self.hprms.device)
+        sdr = torch.pow(10, sdr_db/10).to(signal.device)
 
         signal_power = torch.mean(torch.abs(signal) ** 2)
         

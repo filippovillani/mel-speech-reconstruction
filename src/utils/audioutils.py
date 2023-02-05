@@ -14,9 +14,10 @@ def save_audio(x_wav, x_wav_path, sr = 16000):
     x_wav = min_max_normalization(x_wav)
     sf.write(x_wav_path, x_wav, sr)
  
-def to_db(spectrogram):
+def to_db(spectrogram, power_spectr = False):
+    scale = 10 if power_spectr else 20
     spec_max = torch.max(spectrogram)
-    spec_db = torch.clamp(20 * torch.log10(spectrogram / spec_max + 1e-12), min=-80, max=0)
+    spec_db = torch.clamp(scale * torch.log10(spectrogram / spec_max + 1e-12), min=-80, max=0)
     return spec_db
 
 def to_linear(spectrogram_db):

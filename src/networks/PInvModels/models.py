@@ -72,7 +72,7 @@ class PInvConv(nn.Module):
             _type_: _description_
         """
         x = self.pinvblock(melspec)
-        x_stft_hat = torch.clone(x)
+        # x_stft_hat = torch.clone(x)
         # Encoder
         x_cat = []
         for l in range(self.n_blocks//2):
@@ -85,14 +85,5 @@ class PInvConv(nn.Module):
         for l in range(self.n_blocks//2+1, self.n_blocks):
             x = torch.cat([x, x_cat[l-(self.n_blocks//2+1)]], axis=1)
             x = self.convblocks[l](x)
-            
-        
-        x_stft_hat = x_stft_hat - x
-        # x_stft_hat = min_max_normalization(x_stft_hat)
-        
-        # x_max = torch.as_tensor([torch.max(x[q]) for q in range(x.shape[0])])
-        # stft_hat = torch.empty(x.shape, device=x.device)
-        # for b in range(stft_hat.shape[0]):
-        #     stft_hat[b] = x[b] / x_max[b]
-        
-        return x_stft_hat
+
+        return x

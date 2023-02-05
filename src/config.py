@@ -13,20 +13,20 @@ def create_hparams(model_name: str = None):   # training hparams
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     training_hparams = Namespace(batch_size = 1,
-                                 lr = 1e-4,
+                                 lr = 1e-3,
                                  weights_decay = 1e-4,
                                  epochs = 70,
-                                 patience = 20,
+                                 patience = 10,
                                  lr_patience = 3,
-                                 loss = "mse") # can be one of ["l1", "complexmse", "mse", "frobenius"]
+                                 loss = "l1") # can be one of ["l1", "complexmse", "mse", "frobenius"]
                                  
     
     if model_name in ["unet", "pinvunet"]:
         model_hparams = Namespace(first_unet_channel_units = 32,
-                                  kernel_size = (5,3),
+                                  kernel_size = (3,3),
                                   drop_rate = 0.1)
     elif model_name == "pinvconv":
-        model_hparams = Namespace(conv_channels = [64, 32],
+        model_hparams = Namespace(conv_channels = [32, 64, 128],
                                   kernel_size = (3,3),
                                   drop_rate = 0.)
     elif model_name == "degli":
