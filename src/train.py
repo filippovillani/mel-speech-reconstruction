@@ -107,7 +107,7 @@ class Trainer:
                     sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)),
                                             to_linear(denormalize_db_spectr(x_stftspec_db_norm))).detach()
                     
-                    if not torch.isnan(sdr_metric):
+                    if (not torch.isnan(sdr_metric) and not torch.isinf(sdr_metric)):
                         train_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-train_scores["si-sdr"]))
                                 
                 elif self.task == "spec2wav":

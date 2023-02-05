@@ -1,14 +1,15 @@
 {
     "batch_size": 1,
-    "lr": 0.0001,
+    "lr": 0.001,
     "weights_decay": 0.0001,
     "epochs": 70,
-    "patience": 20,
-    "lr_patience": 4,
-    "loss": "mse",
+    "patience": 10,
+    "lr_patience": 3,
+    "loss": "l1",
     "conv_channels": [
+        32,
         64,
-        32
+        128
     ],
     "kernel_size": [
         3,
