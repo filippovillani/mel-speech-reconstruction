@@ -6,11 +6,11 @@ import torch
 from torch.utils.data import DataLoader
 from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
+from torchmetrics import ScaleInvariantSignalDistortionRatio
 from tqdm import tqdm
 
 import config
 from dataset import build_dataloader
-from metrics import SI_SDR
 from networks.build_model import build_model
 from griffinlim import griffin_lim, fast_griffin_lim
 from utils.audioutils import to_db, to_linear, compute_wav, normalize_db_spectr, denormalize_db_spectr
@@ -47,7 +47,7 @@ class Tester:
         
         self.pesq = PerceptualEvaluationSpeechQuality(fs = self.hprms.sr, mode= "wb")
         self.stoi = ShortTimeObjectiveIntelligibility(fs = self.hprms.sr)
-        self.si_sdr = SI_SDR()
+        self.si_sdr = ScaleInvariantSignalDistortionRatio().to(self.hprms.device)
         
     def test_model(self, 
                    test_dl: DataLoader):
@@ -62,9 +62,9 @@ class Tester:
             for n, batch in enumerate(pbar):
                 if self.task == "melspec2spec":
                     x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch)
-                    x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze()
-                    sdr_metric = self.si_sdr(to_linear(denormalize_db_spectr(x_stftspec_db_norm)),
-                                             to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)))
+                    x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze(1)
+                    sdr_metric = self.si_sdr(to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)),
+                                             to_linear(denormalize_db_spectr(x_stftspec_db_norm)))
                     test_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-test_scores["si-sdr"]))  
                     
                 elif self.task == "spec2wav":
