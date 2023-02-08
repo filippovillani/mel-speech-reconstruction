@@ -56,16 +56,19 @@ def predict(args):
         
     # save audio
     stftspec_hat = to_linear(denormalize_db_spectr(stftspec_hat_db_norm))  
-    out_hat, _ = fast_griffin_lim(torch.abs(stftspec_hat).cpu().detach().numpy().squeeze())
+    out_hat = fast_griffin_lim(torch.abs(stftspec_hat).detach().squeeze())
     sf.write(str(out_hat_path), out_hat, samplerate = hparams.sr)   
     # Compute out_hat 's spectrogram and compare it to the original spectrogram
-    stftspec_gla_db_norm =  normalize_db_spectr(to_db(torch.abs(torch.as_tensor(librosa.stft(y=out_hat, 
-                                                                                             n_fft=hparams.n_fft,
-                                                                                             hop_length=hparams.hop_len)))))
+    stftspec_gla_db_norm =  normalize_db_spectr(to_db(torch.abs(torch.stft(out_hat, 
+                                                                            n_fft=hparams.n_fft,
+                                                                            hop_length=hparams.hop_len,
+                                                                            return_complex=True))))
     plot_melspec_prediction(denormalize_db_spectr(stftspec_db_norm).cpu().numpy().squeeze(), 
                     denormalize_db_spectr(stftspec_hat_db_norm).cpu().detach().numpy().squeeze(), 
-                    hparams, 
-                    prediction_img_path)
+                    sr = hparams.sr,
+                    n_fft = hparams.n_fft,
+                    hop_len = hparams.hop_len,
+                    save_path = prediction_img_path)
     
     si_sdr_metric = SI_SDR()
     metrics = {"si-sdr": float(si_sdr_metric(stftspec_db_norm, stftspec_hat_db_norm)),
@@ -83,7 +86,7 @@ if __name__ == "__main__":
                         default = 'pinvconv')
     parser.add_argument('--weights_dir',
                         type=str,
-                        default='test')
+                        default='pinvconv01')
     parser.add_argument('--best_weights',
                         type=bool,
                         help='if False loads the weights from the checkpoint',
