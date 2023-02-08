@@ -1,5 +1,4 @@
 import argparse
-import json
 
 import librosa
 import soundfile as sf
@@ -14,6 +13,7 @@ from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr,
 from utils.plots import plot_melspec_prediction
 from utils.utils import save_to_json
 
+# TODO: fix everything, add DeGLI
 
 def predict(args):
     
@@ -31,9 +31,10 @@ def predict(args):
 
     # Compute stft of example and then apply gla to retrieve the waveform back
     audio = open_audio(audio_path, hparams)
-    stftspec = torch.abs(torch.as_tensor(librosa.stft(y=audio, 
-                                                      n_fft=hparams.n_fft,
-                                                      hop_length=hparams.hop_len)))
+    stftspec = torch.abs(torch.stft(torch.as_tensor(audio), 
+                                        n_fft=hparams.n_fft,
+                                        hop_length=hparams.hop_len,
+                                        return_complex=True))
 
     stftspec_db_norm = normalize_db_spectr(to_db(stftspec)).float()
 
@@ -86,7 +87,7 @@ if __name__ == "__main__":
                         default = 'pinvconv')
     parser.add_argument('--weights_dir',
                         type=str,
-                        default='pinvconv01')
+                        default='pinvconv02')
     parser.add_argument('--best_weights',
                         type=bool,
                         help='if False loads the weights from the checkpoint',
