@@ -2,8 +2,6 @@ import torch
 import numpy as torch
 import torch
 
-from utils.audioutils import min_max_normalization
-
 
 def griffin_lim(spectrogram: torch.Tensor, 
                 n_iter: int = 500, 
@@ -20,7 +18,6 @@ def griffin_lim(spectrogram: torch.Tensor,
         X = spectrogram * torch.exp(1j * X_phase)   # Pc1(Pc2(cn-1))  
     
     x = torch.istft(X, n_fft=n_fft)
-    x = min_max_normalization(x)
     
     return x
 
@@ -51,7 +48,6 @@ def fast_griffin_lim(spectrogram: torch.Tensor,
         prev_proj = curr_proj
 
     x = torch.istft(X, n_fft=n_fft)
-    x = min_max_normalization(x)
 
     return x
 

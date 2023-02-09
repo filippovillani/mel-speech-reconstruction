@@ -107,7 +107,7 @@ class Tester:
         x_melspec = torch.matmul(self.melfb, x_stftspec**2).unsqueeze(1)
         
         x_stftspec_db_norm = normalize_db_spectr(to_db(x_stftspec))
-        x_melspec_db_norm = normalize_db_spectr(to_db(torch.sqrt(x_melspec)))
+        x_melspec_db_norm = normalize_db_spectr(to_db(x_melspec, power_spectr=True))
         
         return x_stftspec_db_norm, x_melspec_db_norm
     

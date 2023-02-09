@@ -3,77 +3,92 @@ import argparse
 import librosa
 import soundfile as sf
 import torch
+from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
+from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
+from torchmetrics import ScaleInvariantSignalDistortionRatio
 
 import config
 from griffinlim import fast_griffin_lim
-from metrics import SI_SDR
 from networks.build_model import build_model
-from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr,
-                              open_audio, to_db, to_linear)
+from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr, standardization, set_mean_std,
+                              segment_audio, to_db, to_linear, save_audio, open_audio)
 from utils.plots import plot_melspec_prediction
 from utils.utils import save_to_json
 
 # TODO: fix everything, add DeGLI
 
+    
 def predict(args):
     
+    # Paths
+    audio_path = config.DATA_DIR / args.audio_path
     experiment_dir = config.MELSPEC2SPEC_DIR / args.weights_dir
     config_path = experiment_dir / "config.json"
-    out_hat_path = experiment_dir / 'gla_from_melspec.wav'
+    x_wav_hat_path = experiment_dir / 'gla_from_melspec.wav'
     metrics_path = experiment_dir / 'prediction_metrics.json'    
-    audio_path = config.DATA_DIR / args.audio_path
-    prediction_img_path = config.MELSPEC2SPEC_DIR / args.weights_dir / 'prediction.png'  
+    prediction_img_path = experiment_dir / 'prediction.png'  
 
+    # Load hparams and build model
     if args.model_name != 'pinv':
         hparams = config.load_config(config_path)
+        weights_dir = config.WEIGHTS_DIR / args.weights_dir
+        model = build_model(hparams, args.model_name, weights_dir, best_weights = True)
+        model.eval()
     else:
         hparams = config.create_hparams()
-
-    # Compute stft of example and then apply gla to retrieve the waveform back
-    audio = open_audio(audio_path, hparams)
-    stftspec = torch.abs(torch.stft(torch.as_tensor(audio), 
-                                        n_fft=hparams.n_fft,
-                                        hop_length=hparams.hop_len,
-                                        return_complex=True))
-
-    stftspec_db_norm = normalize_db_spectr(to_db(stftspec)).float()
-
-    if args.model_name == 'librosa':
-        melfb = librosa.filters.mel(sr = hparams.sr, 
-                                    n_fft = hparams.n_fft, 
-                                    n_mels = hparams.n_mels)  
-        melspec_db_norm = torch.matmul(torch.as_tensor(melfb), stftspec_db_norm)
-        stftspec_hat_db_norm = librosa.feature.inverse.mel_to_stft(melspec_db_norm.numpy(), 
-                                                                   sr = hparams.sr,
-                                                                   n_fft = hparams.n_fft)
-        stftspec_hat_db_norm = torch.as_tensor(stftspec_hat_db_norm)
     
-    else:
-        weights_dir = config.WEIGHTS_DIR / args.weights_dir
-        model = build_model(hparams, args.model_name, weights_dir, args.best_weights)
-        model.eval()
-        melspec_db_norm = torch.matmul(model.pinvblock.melfb, stftspec_db_norm.to(hparams.device)).unsqueeze(0).unsqueeze(0)
-        stftspec_hat_db_norm = model(melspec_db_norm).cpu()     
-        
-    # save audio
-    stftspec_hat = to_linear(denormalize_db_spectr(stftspec_hat_db_norm))  
-    out_hat = fast_griffin_lim(torch.abs(stftspec_hat).detach().squeeze())
-    sf.write(str(out_hat_path), out_hat, samplerate = hparams.sr)   
+    # Metrics
+    pesq = PerceptualEvaluationSpeechQuality(fs=hparams.sr, mode="wb")
+    stoi = ShortTimeObjectiveIntelligibility(fs=hparams.sr)
+    sisdr = ScaleInvariantSignalDistortionRatio().to(hparams.device)
+    
+    x_wav = open_audio(audio_path, hparams.sr, hparams.audio_len).to(hparams.device)
+    x_stftspec = torch.abs(torch.stft(x_wav, 
+                                    n_fft=hparams.n_fft,
+                                    hop_length=hparams.hop_len,
+                                    return_complex=True)).to(hparams.device)  
+    audio_seg, mean_seg, std_seg = segment_audio(audio_path, hparams.sr, hparams.audio_len)
+    # x_stftspec_hat = []
+    x_wav_hat = []
+    with torch.no_grad():
+        for n in range(audio_seg.shape[0]):
+            x_stftspec_ = torch.abs(torch.stft(audio_seg[n], 
+                                            n_fft=hparams.n_fft,
+                                            hop_length=hparams.hop_len,
+                                            return_complex=True)).to(hparams.device)
+
+            x_melspec = torch.matmul(model.pinvblock.melfb, x_stftspec_**2)
+            x_melspec_db_norm = normalize_db_spectr(to_db(x_melspec, power_spectr=True)).unsqueeze(0).unsqueeze(0)
+            pred = model(x_melspec_db_norm).squeeze()
+            pred = to_linear(denormalize_db_spectr(pred))
+            
+            # x_stftspec_hat.append(pred)
+            x_wav_hat_ = fast_griffin_lim(torch.abs(pred).squeeze())
+            x_wav_hat_ = set_mean_std(x_wav_hat_, mean_seg[n], std_seg[n])
+            x_wav_hat.append(x_wav_hat_)
+            
+        # x_stftspec_hat = torch.stack(x_stftspec_hat, dim=0).reshape(x_stftspec.shape[0], x_stftspec.shape[1][:n*hparams.n_frames]) #TODO: fix reshape
+        x_wav_hat = torch.stack(x_wav_hat, dim=0).reshape(-1)[:len(x_wav)]
+        x_stftspec_hat = torch.abs(torch.stft(x_wav_hat, 
+                                            n_fft=hparams.n_fft,
+                                            hop_length=hparams.hop_len,
+                                            return_complex=True))
+    
+    save_audio(x_wav_hat, x_wav_hat_path, sr=hparams.sr)
+    
     # Compute out_hat 's spectrogram and compare it to the original spectrogram
-    stftspec_gla_db_norm =  normalize_db_spectr(to_db(torch.abs(torch.stft(out_hat, 
-                                                                            n_fft=hparams.n_fft,
-                                                                            hop_length=hparams.hop_len,
-                                                                            return_complex=True))))
-    plot_melspec_prediction(denormalize_db_spectr(stftspec_db_norm).cpu().numpy().squeeze(), 
-                    denormalize_db_spectr(stftspec_hat_db_norm).cpu().detach().numpy().squeeze(), 
-                    sr = hparams.sr,
-                    n_fft = hparams.n_fft,
-                    hop_len = hparams.hop_len,
-                    save_path = prediction_img_path)
+
+    plot_melspec_prediction(to_db(x_stftspec).cpu().numpy().squeeze(), 
+                            to_db(x_stftspec_hat).cpu().numpy().squeeze(), 
+                            sr = hparams.sr,
+                            n_fft = hparams.n_fft,
+                            hop_len = hparams.hop_len,
+                            save_path = prediction_img_path)
     
-    si_sdr_metric = SI_SDR()
-    metrics = {"si-sdr": float(si_sdr_metric(stftspec_db_norm, stftspec_hat_db_norm)),
-               "si-sdr (after gla)": float(si_sdr_metric(stftspec_db_norm, stftspec_gla_db_norm))}
+
+    metrics = {"si-sdr": float(sisdr(x_stftspec_hat, x_stftspec)),
+               "stoi": float(stoi(x_wav_hat, x_wav)),
+               "pesq": float(pesq(x_wav_hat, x_wav))}
     save_to_json(metrics, metrics_path)
 
 
@@ -82,16 +97,12 @@ if __name__ == "__main__":
         
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', 
-                        choices = ["unet", "librosa", "pinvconv", "pinv"],
+                        choices = ["unet", "pinvconv", "pinv"],
                         type=str,
                         default = 'pinvconv')
     parser.add_argument('--weights_dir',
                         type=str,
                         default='pinvconv02')
-    parser.add_argument('--best_weights',
-                        type=bool,
-                        help='if False loads the weights from the checkpoint',
-                        default=True)
     parser.add_argument('--audio_path',
                         type=str,
                         default='in.wav')
