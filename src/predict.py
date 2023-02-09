@@ -1,17 +1,16 @@
 import argparse
+import os
 
-import librosa
-import soundfile as sf
 import torch
 from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 from torchmetrics import ScaleInvariantSignalDistortionRatio
 
 import config
-from griffinlim import fast_griffin_lim
+from griffinlim import fast_griffin_lim, griffin_lim
 from networks.build_model import build_model
-from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr, standardization, set_mean_std,
-                              segment_audio, to_db, to_linear, save_audio, open_audio)
+from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr, set_mean_std,
+                              segment_audio, to_db, to_linear, save_audio, open_audio, compute_wav)
 from utils.plots import plot_melspec_prediction
 from utils.utils import save_to_json
 
@@ -22,21 +21,34 @@ def predict(args):
     
     # Paths
     audio_path = config.DATA_DIR / args.audio_path
-    experiment_dir = config.MELSPEC2SPEC_DIR / args.weights_dir
-    config_path = experiment_dir / "config.json"
+    mel2spec_dir = config.MELSPEC2SPEC_DIR / args.mel2spec_weights_dir
+    experiment_dir = config.MELSPEC2WAV_DIR / (args.mel2spec_model_name + "_" + args.spec2wav_model_name)
+    config_path = mel2spec_dir / "config.json"
+    degli_config_path = config.SPEC2WAV_DIR / args.spec2wav_weights_dir / "config.json"
     x_wav_hat_path = experiment_dir / 'gla_from_melspec.wav'
     metrics_path = experiment_dir / 'prediction_metrics.json'    
     prediction_img_path = experiment_dir / 'prediction.png'  
 
-    # Load hparams and build model
-    if args.model_name != 'pinv':
+    if not os.path.exists(experiment_dir):
+        os.mkdir(experiment_dir)
+    
+    # Load hparams and build mel2spec_model
+    if args.mel2spec_model_name != 'pinv':
         hparams = config.load_config(config_path)
-        weights_dir = config.WEIGHTS_DIR / args.weights_dir
-        model = build_model(hparams, args.model_name, weights_dir, best_weights = True)
-        model.eval()
+        mel2spec_weights_dir = config.WEIGHTS_DIR / args.mel2spec_weights_dir
+        mel2spec_model = build_model(hparams, args.mel2spec_model_name, mel2spec_weights_dir, best_weights=True)
+        mel2spec_model.eval()
     else:
         hparams = config.create_hparams()
     
+    # Load hparams and build mel2spec_model
+    if args.spec2wav_model_name == "degli":
+        spec2wav_weights_dir = config.WEIGHTS_DIR / args.spec2wav_weights_dir
+        degli_hparams = config.load_config(degli_config_path)
+        spec2wav_model = build_model(degli_hparams, args.spec2wav_model_name, spec2wav_weights_dir, best_weights=True)
+        spec2wav_model.repetitions = args.degli_blocks
+        spec2wav_model.eval()
+        
     # Metrics
     pesq = PerceptualEvaluationSpeechQuality(fs=hparams.sr, mode="wb")
     stoi = ShortTimeObjectiveIntelligibility(fs=hparams.sr)
@@ -48,7 +60,6 @@ def predict(args):
                                     hop_length=hparams.hop_len,
                                     return_complex=True)).to(hparams.device)  
     audio_seg, mean_seg, std_seg = segment_audio(audio_path, hparams.sr, hparams.audio_len)
-    # x_stftspec_hat = []
     x_wav_hat = []
     with torch.no_grad():
         for n in range(audio_seg.shape[0]):
@@ -57,17 +68,26 @@ def predict(args):
                                             hop_length=hparams.hop_len,
                                             return_complex=True)).to(hparams.device)
 
-            x_melspec = torch.matmul(model.pinvblock.melfb, x_stftspec_**2)
+            x_melspec = torch.matmul(mel2spec_model.pinvblock.melfb, x_stftspec_**2)
             x_melspec_db_norm = normalize_db_spectr(to_db(x_melspec, power_spectr=True)).unsqueeze(0).unsqueeze(0)
-            pred = model(x_melspec_db_norm).squeeze()
+            
+            # MELSPEC2SPEC
+            pred = mel2spec_model(x_melspec_db_norm).squeeze()
             pred = to_linear(denormalize_db_spectr(pred))
             
-            # x_stftspec_hat.append(pred)
-            x_wav_hat_ = fast_griffin_lim(torch.abs(pred).squeeze())
+            # STFT2WAV
+            if args.spec2wav_model_name == "degli":
+                pred_init = initialize_random_phase(pred.unsqueeze(0))
+                x_stft_hat = spec2wav_model(pred_init, pred.unsqueeze(0)).squeeze()
+                x_wav_hat_ = compute_wav(x_stft_hat, n_fft=hparams.n_fft)
+            elif args.spec2wav_model_name == "fgla":
+                x_wav_hat_ = fast_griffin_lim(pred)
+            elif args.spec2wav_model_name == "gla":
+                x_wav_hat_ = griffin_lim(pred)
+                
             x_wav_hat_ = set_mean_std(x_wav_hat_, mean_seg[n], std_seg[n])
             x_wav_hat.append(x_wav_hat_)
             
-        # x_stftspec_hat = torch.stack(x_stftspec_hat, dim=0).reshape(x_stftspec.shape[0], x_stftspec.shape[1][:n*hparams.n_frames]) #TODO: fix reshape
         x_wav_hat = torch.stack(x_wav_hat, dim=0).reshape(-1)[:len(x_wav)]
         x_stftspec_hat = torch.abs(torch.stft(x_wav_hat, 
                                             n_fft=hparams.n_fft,
@@ -92,17 +112,37 @@ def predict(args):
     save_to_json(metrics, metrics_path)
 
 
+def initialize_random_phase(x_stft_mag):
+    
+    phase = torch.zeros_like(x_stft_mag)
+    x_stft = x_stft_mag * torch.exp(1j * phase)
+    return x_stft      
     
 if __name__ == "__main__":
         
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', 
+    parser.add_argument('--mel2spec_model_name', 
                         choices = ["unet", "pinvconv", "pinv"],
                         type=str,
                         default = 'pinvconv')
-    parser.add_argument('--weights_dir',
+    
+    parser.add_argument('--spec2wav_model_name', 
+                        choices = ["degli", "fgla", "gla"],
+                        type=str,
+                        default = 'gla')
+    
+    parser.add_argument('--mel2spec_weights_dir',
                         type=str,
                         default='pinvconv02')
+    
+    parser.add_argument('--spec2wav_weights_dir',
+                        type=str,
+                        default='degli_B1_deglidata_fromnoiseM6P12')
+    
+    parser.add_argument('--degli_blocks',
+                        type=int,
+                        default=10)
+    
     parser.add_argument('--audio_path',
                         type=str,
                         default='in.wav')

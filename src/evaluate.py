@@ -31,7 +31,7 @@ class Tester:
             self.hprms = config.load_config(self.config_path)
             self.hprms.batch_size = 1
             self.model = build_model(self.hprms, args.model_name, self.experiment_weights_dir, best_weights=True)
-            self.model.repetitions = args.num_blocks
+            self.model.repetitions = args.degli_blocks
             self.model.eval()
         elif self.model_name == "pinv":
             self.hprms = config.create_hparams()
@@ -153,18 +153,18 @@ if __name__ == "__main__":
     parser.add_argument('--task',
                         type=str,
                         choices=["melspec2spec", "spec2wav"],
-                        default='melspec2spec')
+                        default='spec2wav')
     
     parser.add_argument('--model_name',
                         choices = ["pinvconv", "pinvunet", "pinv", "fgla", "gla", "degli"],
                         type=str,
-                        default = 'pinv')
+                        default = 'degli')
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='test')
+                        default='degli_B1_deglidata_fromnoiseM6P12')
     
-    parser.add_argument('--num_blocks',
+    parser.add_argument('--degli_blocks',
                         type=int,
                         default=100)
     

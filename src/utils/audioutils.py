@@ -20,13 +20,16 @@ def open_audio(audio_path, sr, audio_len):
 
 def compute_wav(x_stft, n_fft):
 
-    x_wav = torch.stack([torch.istft(x_stft[b], n_fft=n_fft) for b in range(x_stft.shape[0])], dim=0)
+    if x_stft.dim() == 3:
+        x_wav = torch.stack([torch.istft(x_stft[b], n_fft=n_fft) for b in range(x_stft.shape[0])], dim=0)
+    else:
+        x_wav = torch.istft(x_stft, n_fft=n_fft)
     x_wav = standardization(x_wav) 
-    
     return x_wav
 
 
 def save_audio(x_wav, x_wav_path, sr = 16000):
+    
     if isinstance(x_wav, torch.Tensor):
         x_wav = x_wav.cpu().detach().numpy()
     x_wav = min_max_normalization(x_wav)
