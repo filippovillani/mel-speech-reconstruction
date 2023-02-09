@@ -1,5 +1,4 @@
 import argparse
-import json
 import os
 from time import time
 
@@ -19,7 +18,7 @@ from networks.build_model import build_model
 from utils.audioutils import (compute_wav, denormalize_db_spectr,
                               normalize_db_spectr, to_db, to_linear)
 from utils.plots import plot_train_hist, plot_train_hist_degli
-from utils.utils import save_to_json
+from utils.utils import save_to_json, load_json
 
 class Trainer:
     def __init__(self, args):
@@ -27,7 +26,7 @@ class Trainer:
         self.model_name = args.model_name
         self.task = args.task
         self.data_degli_name = args.data_degli_name
-        self._set_paths(args.task, args.experiment_name, args.data_degli_name)
+        self._set_paths(args.task, args.experiment_name, args.data_degli_name, args.mel2spec_data_name)
         self._set_hparams(args.resume_training)
         self._set_loss(self.hprms.loss)
         
@@ -48,9 +47,8 @@ class Trainer:
         self.sisdr = ScaleInvariantSignalDistortionRatio().to(self.hprms.device)
         if args.resume_training:
             # Load model's weights, optimizer and scheduler from checkpoint
-            with open(self.training_state_path, "r") as fp:
-                self.training_state = json.load(fp)        
-            self.model = build_model(self.hprms, args.model_name, self.experiment_weights_dir, best_weights = False)
+            self.training_state = load_json(self.training_state_path)     
+            self.model = build_model(self.hprms, args.model_name, self.experiment_weights_dir, best_weights=False)
             self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)        
             self.optimizer.load_state_dict(torch.load(self.ckpt_opt_path)) 
             self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=self.hprms.lr_patience)
@@ -64,6 +62,10 @@ class Trainer:
         if self.data_degli_name is not None:
             data_degli_hprms = config.load_config(self.data_degli_config_path)
             self.data_degli = build_model(data_degli_hprms, "degli", self.data_degli_weights_dir)
+        
+        if self.task == "melspec2wav":
+            self.mel2spec_model = build_model(self.hprms, args.mel2spec_model_name, self.mel2spec_weights_dir, best_weights=True)
+            self.mel2spec_model.eval()
             
             
     def train(self, train_dl, val_dl):
@@ -138,20 +140,44 @@ class Trainer:
                     train_scores["pesq"]  += ((1./(n+1))*(pesq_metric-train_scores["pesq"]))
 
                     
-                elif self.task == "mel2wav":
-                    # TODO: not implemented yet 
-                    # stack ConvPInv and DeGLI
-                    pass
+                elif self.task == "melspec2wav":
+
+                    _, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch)
+                    with torch.no_grad():
+                        x_stftspec_hat_db_norm = self.mel2spec_model(x_melspec_db_norm).squeeze(1)
+                        x_stftspec_hat = to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm))
+                        x_stft, x_stft_noise = self._preprocess_melspec2wav_batch(batch, x_stftspec_hat)
+                    
+                    x_stft_hat = self.model(x_stft_noise, x_stftspec_hat)
+                    
+                    loss = self.loss_fn(x_stft_hat, x_stft)
+                    train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
+                    loss.backward()  
+                    self.optimizer.step()
+                    
+                    # Compute metrics
+                    x_wav = compute_wav(x_stft, n_fft=self.hprms.n_fft).squeeze()
+                    x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze().detach()
+                    
+                    # STOI
+                    stoi_metric = self.stoi(x_wav_hat, x_wav) 
+                    train_scores["stoi"] += ((1./(n+1))*(stoi_metric-train_scores["stoi"]))
+                    # PESQ (check if there is no utterance)
+                    try:
+                        pesq_metric = self.pesq(x_wav_hat, x_wav)
+                    except:
+                        pesq_metric = train_scores["pesq"]
+                    train_scores["pesq"]  += ((1./(n+1))*(pesq_metric-train_scores["pesq"]))
                 
                 else:
-                    raise ValueError(f"task must be one of [melspec2spec, spec2wav, mel2wav], \
+                    raise ValueError(f"task must be one of [melspec2spec, spec2wav, melspec2wav], \
                         received {self.task}")
                     
                 scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                if n == 100:
-                    break
+                # if n == 50:
+                #     break
 
             # Evaluate on the validation set
             val_scores = self.eval_model(model = self.model, 
@@ -159,13 +185,13 @@ class Trainer:
                                          task = self.task)
             if self.task == "mel2spec":
                 self.lr_sched.step(val_scores["si-sdr"])
-            elif self.task == "spec2wav":
+            elif self.task in ["spec2wav", "melspec2wav"]:
                 self.lr_sched.step(val_scores["pesq"])
             # Update and save training state
             self._update_training_state(train_scores, val_scores)
             self._save_training_state()
             # Save plot of train history
-            if self.task == "spec2wav":
+            if self.task in ["spec2wav", "melspec2wav"]:
                 plot_train_hist_degli(self.experiment_dir)
             else:
                 plot_train_hist(self.experiment_dir)            
@@ -178,6 +204,21 @@ class Trainer:
         print("____________________________________________")
 
         return self.training_state
+    
+    
+    def _preprocess_melspec2wav_batch(self, batch, x_stftspec_hat):
+        
+        x_stft = batch["stft"].to(self.hprms.device)
+        x_stftphase = torch.angle(x_stft)
+        x_stft_hat = x_stftspec_hat * torch.exp(1j * x_stftphase)
+        
+        noise = self._create_noise(x_stftspec_hat, 
+                                   max_snr_db = self.hprms.max_snr_db,
+                                   min_snr_db = self.hprms.min_snr_db)
+        
+        x_stft_noise = x_stft_hat + noise
+        
+        return x_stft, x_stft_noise
     
     
     def _preprocess_mel2spec_batch(self, batch):
@@ -287,14 +328,34 @@ class Trainer:
                     test_scores["pesq"] += ((1./(n+1))*(pesq_metric-test_scores["pesq"]))
 
                 elif task == "melspec2wav":
-                    # TODO
-                    pass
-                
+                    _, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch) 
+                    with torch.no_grad():
+                        x_stftspec_hat_db_norm = self.mel2spec_model(x_melspec_db_norm).squeeze(1)
+                        x_stftspec_hat = to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm))
+                        x_stft, _ = self._preprocess_melspec2wav_batch(batch, x_stftspec_hat) 
+                        x_stft_noise = self._initialize_random_phase(x_stft)
+                        
+                    x_stft_hat = model(x_stft_noise, x_stftspec_hat)
+                    
+                    x_wav = compute_wav(x_stft, n_fft=self.hprms.n_fft).squeeze()
+                    x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze().detach()                
+
+                    
+                    # Compute metrics
+                    stoi_metric = self.stoi(x_wav_hat, x_wav) 
+                    test_scores["stoi"] += ((1./(n+1))*(stoi_metric-test_scores["stoi"]))
+                        
+                    try:
+                        pesq_metric = self.pesq(x_wav_hat, x_wav) 
+                    except:
+                        pesq_metric = test_scores["pesq"]
+                    test_scores["pesq"] += ((1./(n+1))*(pesq_metric-test_scores["pesq"]))
+                    
                 scores_to_print = str({k: round(float(v), 4) for k, v in test_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                if n == 50:
-                    break  
+                # if n == 50:
+                #     break  
                  
         return test_scores
 
@@ -304,7 +365,7 @@ class Trainer:
         if resume_training:
             self.hprms = config.load_config(self.config_path)
         else:
-            self.hprms = config.create_hparams(self.model_name)
+            self.hprms = config.create_hparams()
             config.save_config(self.hprms, self.config_path)
     
     def _set_loss(self, loss: str):
@@ -321,12 +382,19 @@ class Trainer:
     def _set_paths(self, 
                    task, 
                    experiment_name, 
-                   data_degli_name: None):
+                   data_degli_name = None,
+                   mel2spec_data_name = None):
    
         if task == "melspec2spec":
             results_dir = config.MELSPEC2SPEC_DIR 
         elif task == "spec2wav":
             results_dir = config.SPEC2WAV_DIR 
+            if data_degli_name is not None:
+                self.data_degli_weights_dir = config.WEIGHTS_DIR / data_degli_name
+                self.data_degli_config_path = results_dir / data_degli_name / "config.json"
+        elif task == "melspec2wav":
+            results_dir = config.MELSPEC2WAV_DIR
+            self.mel2spec_weights_dir = config.WEIGHTS_DIR / mel2spec_data_name
             if data_degli_name is not None:
                 self.data_degli_weights_dir = config.WEIGHTS_DIR / data_degli_name
                 self.data_degli_config_path = results_dir / data_degli_name / "config.json"
@@ -366,7 +434,7 @@ class Trainer:
                 self.training_state["val_hist"][key] = []
             self.training_state["val_hist"][key].append(value)
         
-        if self.task == "spec2wav":
+        if self.task in ["spec2wav", "melspec2wav"]:
             metr = "pesq"
         elif self.task == "melspec2spec":
             metr = "si-sdr"
@@ -408,16 +476,25 @@ if __name__ == "__main__":
     parser.add_argument('--model_name',
                         type=str,
                         choices=["unet", "pinvconv", "pinvunet", "degli"],
-                        default='pinvconv')
-    
-    parser.add_argument('--task',
-                        type=str,
-                        choices=["melspec2spec", "spec2wav"],
-                        default='melspec2spec')
+                        default='degli')
     
     parser.add_argument('--experiment_name',
                         type=str,
                         default='test')
+    
+    parser.add_argument('--task',
+                        type=str,
+                        choices=["melspec2spec", "spec2wav", "melspec2wav"],
+                        default='melspec2wav')
+    
+    parser.add_argument('--mel2spec_data_name',
+                        type=str,
+                        default='pinvconv02')
+    
+    parser.add_argument('--mel2spec_model_name',
+                        type=str,
+                        choices=["pinvconv", "pinvunet"],
+                        default='pinvconv')
     
     parser.add_argument('--resume_training',
                         action='store_true',
