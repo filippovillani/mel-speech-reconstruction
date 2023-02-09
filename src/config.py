@@ -8,36 +8,29 @@ from pathlib import Path
 import numpy as np
 import torch
 
-def create_hparams(model_name: str = None):   # training hparams
+def create_hparams():   # training hparams
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     training_hparams = Namespace(batch_size = 1,
-                                 lr = 1e-3,
+                                 lr = 1e-4,
                                  weights_decay = 1e-4,
                                  epochs = 70,
                                  patience = 10,
                                  lr_patience = 3,
-                                 loss = "l1") # can be one of ["l1", "complexmse", "mse", "frobenius"]
+                                 loss = "l1", # can be one of ["l1", "complexmse", "mse", "frobenius"]
+                                 max_snr_db = 12,
+                                 min_snr_db = -6) 
                                  
-    
-    if model_name in ["unet", "pinvunet"]:
-        model_hparams = Namespace(first_unet_channel_units = 32,
-                                  kernel_size = (3,3),
-                                  drop_rate = 0.1)
-    elif model_name == "pinvconv":
-        model_hparams = Namespace(conv_channels = [32, 64, 128],
-                                  kernel_size = (3,3),
-                                  drop_rate = 0.)
-    elif model_name == "degli":
-        model_hparams = Namespace(hidden_channel = 32,
-                                  kernel_size = (5,3),
+    model_hparams = Namespace(first_unet_channel_units = 32,
+                                  unet_kernel_size = (3,3),
+                                  drop_rate = 0.0,
+                                  conv_channels = [32, 64, 128],
+                                  conv_kernel_size = (3,3),
+                                  degli_hidden_channels = 32,
+                                  degli_kernel_size = (5,3),
                                   val_degli_rep = 3,
-                                  degli_data_lr = 1e-6,
-                                  max_snr_db = 12,
-                                  min_snr_db = -6)
-    else:
-        model_hparams = Namespace()
+                                  degli_data_lr = 1e-6)
     
     audio_hparams = Namespace(sr = 16000,
                               n_mels = 80,

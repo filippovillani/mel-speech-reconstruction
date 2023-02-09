@@ -10,32 +10,32 @@ class UNet(nn.Module):
 
         self.contrblock1 = ContractingBlock(in_channels = hparams.n_channels,
                                             out_channels = hparams.first_unet_channel_units,
-                                            kernel_size = hparams.kernel_size,
+                                            kernel_size = hparams.unet_kernel_size,
                                             drop_rate = hparams.drop_rate)
         
         self.contrblock2 = ContractingBlock(in_channels = hparams.first_unet_channel_units,
-                                            kernel_size = hparams.kernel_size,
+                                            kernel_size = hparams.unet_kernel_size,
                                             drop_rate = hparams.drop_rate)
 
         self.contrblock3 = ContractingBlock(in_channels = hparams.first_unet_channel_units * 2,
-                                            kernel_size = hparams.kernel_size,
+                                            kernel_size = hparams.unet_kernel_size,
                                             drop_rate = hparams.drop_rate)
         
         self.contrblock4 = ContractingBlock(in_channels = hparams.first_unet_channel_units * 4,
-                                            kernel_size = hparams.kernel_size,
+                                            kernel_size = hparams.unet_kernel_size,
                                             drop_rate = hparams.drop_rate,
                                             last_block = True)
 
         self.expandblock3 = ExpandingBlock(in_channels = hparams.first_unet_channel_units * 8,
-                                           kernel_size = hparams.kernel_size,
+                                           kernel_size = hparams.unet_kernel_size,
                                            drop_rate = hparams.drop_rate)
         
         self.expandblock2 = ExpandingBlock(in_channels = hparams.first_unet_channel_units * 4,
-                                           kernel_size = hparams.kernel_size,
+                                           kernel_size = hparams.unet_kernel_size,
                                            drop_rate = hparams.drop_rate)
         
         self.expandblock1 = ExpandingBlock(in_channels = hparams.first_unet_channel_units * 2,
-                                           kernel_size = hparams.kernel_size,
+                                           kernel_size = hparams.unet_kernel_size,
                                            drop_rate = hparams.drop_rate)
         
         self.outblock = OutBlock(in_channels = hparams.first_unet_channel_units)

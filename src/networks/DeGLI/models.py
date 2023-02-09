@@ -62,16 +62,16 @@ class AIGCCNN(nn.Module):
     def __init__(self, hparams):
         super(AIGCCNN, self).__init__()
         self.aigcc = nn.Sequential(AIGC(in_channels = 3,
-                                         out_channels = hparams.hidden_channel,
-                                         kernel_size = hparams.kernel_size),
-                                   AIGC(in_channels = hparams.hidden_channel,
-                                         out_channels = hparams.hidden_channel,
-                                         kernel_size = hparams.kernel_size),
-                                   AIGC(in_channels = hparams.hidden_channel,
-                                        out_channels = hparams.hidden_channel,
-                                        kernel_size = hparams.kernel_size))
+                                         out_channels = hparams.degli_hidden_channels,
+                                         kernel_size = hparams.degli_kernel_size),
+                                   AIGC(in_channels = hparams.degli_hidden_channels,
+                                         out_channels = hparams.degli_hidden_channels,
+                                         kernel_size = hparams.degli_kernel_size),
+                                   AIGC(in_channels = hparams.degli_hidden_channels,
+                                        out_channels = hparams.degli_hidden_channels,
+                                        kernel_size = hparams.degli_kernel_size))
     
-        self.conv = LastConv(in_channels = hparams.hidden_channel,
+        self.conv = LastConv(in_channels = hparams.degli_hidden_channels,
                              out_channels = 1,
                              kernel_size = (1,1))
         
