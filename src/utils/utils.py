@@ -2,6 +2,10 @@ import json
 
 import torch
 
+def load_json(path):
+    with open(path, "r") as fp:
+        json.load(fp)
+
 def save_to_json(data, paths):
     if not isinstance(data, list):
         data = [data]

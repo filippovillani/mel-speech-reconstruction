@@ -44,7 +44,7 @@ def plot_melspec_prediction(mel: np.ndarray,
                     hop_len: int,
                     save_path: str):
     
-    plt.figure()
+    plt.figure(figsize=(10, 8))
     plt.subplot(2,1,1)
     librosa.display.specshow(mel, 
                              sr=sr, 

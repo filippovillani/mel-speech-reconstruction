@@ -129,7 +129,7 @@ if __name__ == "__main__":
     parser.add_argument('--spec2wav_model_name', 
                         choices = ["degli", "fgla", "gla"],
                         type=str,
-                        default = 'gla')
+                        default = 'degli')
     
     parser.add_argument('--mel2spec_weights_dir',
                         type=str,
@@ -137,11 +137,11 @@ if __name__ == "__main__":
     
     parser.add_argument('--spec2wav_weights_dir',
                         type=str,
-                        default='degli_B1_deglidata_fromnoiseM6P12')
+                        default='test')
     
     parser.add_argument('--degli_blocks',
                         type=int,
-                        default=10)
+                        default=80)
     
     parser.add_argument('--audio_path',
                         type=str,
