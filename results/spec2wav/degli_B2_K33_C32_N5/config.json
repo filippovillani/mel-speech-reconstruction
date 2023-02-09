@@ -12,8 +12,8 @@
     "hop_len": 256,
     "audio_ms": 4080,
     "min_noise_ms": 1000,
-    "hidden_channel": 32,
-    "kernel_size": [
+    "degli_hidden_channels": 32,
+    "degli_kernel_size": [
         3,
         3
     ],
