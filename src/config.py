@@ -13,12 +13,12 @@ def create_hparams():   # training hparams
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     training_hparams = Namespace(batch_size = 1,
-                                 lr = 1e-4,
+                                 lr = 1e-3,
                                  weights_decay = None,
                                  epochs = 70,
                                  patience = 10,
                                  lr_patience = 3,
-                                 loss = "l1", # can be one of ["l1", "complexmse", "mse", "frobenius"]
+                                 loss = "mse", # can be one of ["l1", "complexmse", "mse", "frobenius"]
                                  max_snr_db = 12,
                                  min_snr_db = -6) 
                                  

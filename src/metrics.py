@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
-
+def mse(s_target: torch.Tensor,
+        s_hat: torch.Tensor)->torch.Tensor:
+    error = s_target - s_hat
+    return torch.mean(torch.square(error))
 class SI_SDR(nn.Module):
     def __init__(self):
         super(SI_SDR, self).__init__()

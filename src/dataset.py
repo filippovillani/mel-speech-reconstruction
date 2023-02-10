@@ -4,6 +4,7 @@ from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader, Dataset
+from utils.audioutils import to_db, normalize_db_spectr
 
 
 def build_dataloader(hparams: Namespace,
@@ -29,13 +30,17 @@ class STFTDataset(Dataset):
                  ds_type: str = "train"):
         
         super(STFTDataset, self).__init__()
-        self.spectr_dir = data_dir / "stft" / ds_type
+        self.data_dir = data_dir
+        
+        self.spectr_dir = data_dir / "spectrograms" / ds_type
+        
         self.spectr_list_path = [self.spectr_dir / path for path in os.listdir(self.spectr_dir)]
        
     def __getitem__(self, idx):
         
-        stft = torch.load(self.spectr_list_path[idx])
-        return {'stft': stft}
+        spectr = normalize_db_spectr(to_db(torch.load(self.spectr_list_path[idx])))
+        
+        return {'spectrogram': spectr}
         
     def __len__(self):
         return len(os.listdir(self.spectr_dir))

@@ -12,6 +12,7 @@ from torchmetrics import ScaleInvariantSignalDistortionRatio
 from tqdm import tqdm
 
 import config
+from metrics import mse
 from dataset import build_dataloader
 from losses import ComplexMSELoss, FrobeniusLoss, l2_regularization
 from networks.build_model import build_model
@@ -93,11 +94,12 @@ class Trainer:
                 
                 if self.task == "melspec2spec":
 
-                    x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_melspec2spec_batch(batch)
-
-                    x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze(1)
+                    stftspec_db_norm = (batch["spectrogram"]).float().to(self.hprms.device)
+                    melspec_db_norm = torch.matmul(self.melfb, stftspec_db_norm).unsqueeze(1)
                     
-                    loss = self.loss_fn(x_stftspec_db_norm, x_stftspec_hat_db_norm)
+                    stftspec_hat_db_norm = self.model(melspec_db_norm).squeeze(1)
+                    
+                    loss = mse(stftspec_db_norm, stftspec_hat_db_norm)
                     
                     if self.hprms.weights_decay is not None:
                         l2_reg = l2_regularization(self.model)
@@ -105,10 +107,15 @@ class Trainer:
                         
                     train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
                     loss.backward()  
-                    self.optimizer.step()    
+                    self.optimizer.step()
+
+                    sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(stftspec_db_norm)),
+                                            to_linear(denormalize_db_spectr(stftspec_hat_db_norm)))
+                    train_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-train_scores["si-sdr"]))
+   
                     
-                    sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)),
-                                            to_linear(denormalize_db_spectr(x_stftspec_db_norm))).detach()
+                    # sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)),
+                    #                         to_linear(denormalize_db_spectr(x_stftspec_db_norm))).detach()
                     
                     if (not torch.isnan(sdr_metric) and not torch.isinf(sdr_metric)):
                         train_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-train_scores["si-sdr"]))
@@ -182,8 +189,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                if n == 100:
-                    break
+                # if n == 100:
+                #     break
 
             # Evaluate on the validation set
             val_scores = self.eval_model(model = self.model, 

@@ -1,11 +1,11 @@
 {
     "batch_size": 1,
-    "lr": 0.0001,
+    "lr": 0.001,
     "weights_decay": null,
     "epochs": 70,
     "patience": 10,
     "lr_patience": 3,
-    "loss": "l1",
+    "loss": "mse",
     "max_snr_db": 12,
     "min_snr_db": -6,
     "first_unet_channel_units": 32,
@@ -20,7 +20,7 @@
         128
     ],
     "conv_kernel_size": [
-        5,
+        3,
         3
     ],
     "degli_hidden_channels": 32,
