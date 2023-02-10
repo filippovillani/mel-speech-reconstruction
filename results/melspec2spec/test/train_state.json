@@ -1,33 +1,25 @@
 {
-    "epochs": 3,
+    "epochs": 1,
     "patience_epochs": 0,
-    "best_epoch": 3,
+    "best_epoch": 1,
     "best_epoch_scores": {
-        "loss": 0.0631,
-        "si-sdr": 8.261
+        "loss": 0.0045,
+        "si-sdr": 8.278
     },
     "train_hist": {
         "loss": [
-            0.1004,
-            0.078,
-            0.0703
+            0.0091
         ],
         "si-sdr": [
-            6.1853,
-            7.8749,
-            8.2018
+            7.7847
         ]
     },
     "val_hist": {
         "loss": [
-            0.0778,
-            0.063,
-            0.0631
+            0.0045
         ],
         "si-sdr": [
-            7.4013,
-            8.1392,
-            8.261
+            8.278
         ]
     }
 }

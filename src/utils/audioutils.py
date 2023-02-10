@@ -18,11 +18,11 @@ def compute_wav(x_stft, n_fft):
     if x_stft.dim() == 3:
         x_wav = torch.stack([torch.istft(x_stft[b], 
                                          n_fft = n_fft, 
-                                         window = torch.hann_window(1024)) for b in range(x_stft.shape[0])], dim=0)
+                                         window = torch.hann_window(n_fft).to(x_stft[b].device)) for b in range(x_stft.shape[0])], dim=0)
     else:
         x_wav = torch.istft(x_stft, 
                             n_fft = n_fft,
-                            window = torch.hann_window(1024))
+                            window = torch.hann_window(n_fft).to(x_stft.device))
     x_wav = standardization(x_wav) 
     return x_wav
 

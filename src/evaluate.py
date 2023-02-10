@@ -10,6 +10,7 @@ from torchmetrics import ScaleInvariantSignalDistortionRatio
 from tqdm import tqdm
 
 import config
+from metrics import SI_SDR
 from dataset import build_dataloader
 from networks.build_model import build_model
 from griffinlim import griffin_lim, fast_griffin_lim
@@ -48,7 +49,7 @@ class Tester:
         
         self.pesq = PerceptualEvaluationSpeechQuality(fs = self.hprms.sr, mode= "wb")
         self.stoi = ShortTimeObjectiveIntelligibility(fs = self.hprms.sr)
-        self.si_sdr = ScaleInvariantSignalDistortionRatio().to(self.hprms.device)
+        self.si_sdr = SI_SDR().to(self.hprms.device)
         
     def test_model(self, 
                    test_dl: DataLoader):
@@ -62,7 +63,7 @@ class Tester:
         with torch.no_grad():
             for n, batch in enumerate(pbar):
                 if self.task == "melspec2spec":
-                    x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch)
+                    x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_melspec2spec_batch(batch)
                     x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze(1)
                     sdr_metric = self.si_sdr(to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)),
                                              to_linear(denormalize_db_spectr(x_stftspec_db_norm)))
@@ -101,14 +102,10 @@ class Tester:
                 
         save_to_json(test_scores, self.test_metrics_path)    
 
-    def _preprocess_mel2spec_batch(self, batch):
+    def _preprocess_melspec2spec_batch(self, batch):
         
-        x_stft = batch["stft"].to(self.hprms.device)
-        x_stftspec = torch.abs(x_stft).float()
-        x_melspec = torch.matmul(self.melfb, x_stftspec**2).unsqueeze(1)
-        
-        x_stftspec_db_norm = normalize_db_spectr(to_db(x_stftspec))
-        x_melspec_db_norm = normalize_db_spectr(to_db(x_melspec, power_spectr=True))
+        x_stftspec_db_norm = batch["spectrogram"].float().to(self.hprms.device)
+        x_melspec_db_norm = torch.matmul(self.melfb, x_stftspec_db_norm).unsqueeze(1)
         
         return x_stftspec_db_norm, x_melspec_db_norm
 

@@ -4,9 +4,9 @@ import os
 import torch
 from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
-from torchmetrics import ScaleInvariantSignalDistortionRatio
 
 import config
+from metrics import SI_SDR
 from griffinlim import fast_griffin_lim, griffin_lim
 from networks.build_model import build_model
 from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr, set_mean_std,
@@ -15,16 +15,15 @@ from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr, set_me
 from utils.plots import plot_melspec_prediction
 from utils.utils import save_to_json
 
-# TODO: fix everything, add DeGLI
 
     
 def predict(args):
     
     # Paths
     audio_path = config.DATA_DIR / args.audio_path
-    mel2spec_dir = config.MELSPEC2SPEC_DIR / args.mel2spec_weights_dir
-    experiment_dir = config.MELSPEC2WAV_DIR / (args.mel2spec_model_name + "_" + args.spec2wav_model_name)
-    config_path = mel2spec_dir / "config.json"
+    melspec2spec_dir = config.MELSPEC2SPEC_DIR / args.melspec2spec_weights_dir
+    experiment_dir = config.MELSPEC2WAV_DIR / (args.melspec2spec_model_name + "_" + args.spec2wav_model_name)
+    config_path = melspec2spec_dir / "config.json"
     degli_config_path = config.MELSPEC2WAV_DIR / args.spec2wav_weights_dir / "config.json"
     x_wav_hat_path = experiment_dir / 'gla_from_melspec.wav'
     metrics_path = experiment_dir / 'prediction_metrics.json'    
@@ -33,16 +32,16 @@ def predict(args):
     if not os.path.exists(experiment_dir):
         os.mkdir(experiment_dir)
     
-    # Load hparams and build mel2spec_model
-    if args.mel2spec_model_name != 'pinv':
+    # Load hparams and build melspec2spec_model
+    if args.melspec2spec_model_name != 'pinv':
         hparams = config.load_config(config_path)
-        mel2spec_weights_dir = config.WEIGHTS_DIR / args.mel2spec_weights_dir
-        mel2spec_model = build_model(hparams, args.mel2spec_model_name, mel2spec_weights_dir, best_weights=True)
-        mel2spec_model.eval()
+        melspec2spec_weights_dir = config.WEIGHTS_DIR / args.melspec2spec_weights_dir
+        melspec2spec_model = build_model(hparams, args.melspec2spec_model_name, melspec2spec_weights_dir, best_weights=True)
+        melspec2spec_model.eval()
     else:
         hparams = config.create_hparams()
     
-    # Load hparams and build mel2spec_model
+    # Load hparams and build melspec2spec_model
     if args.spec2wav_model_name == "degli":
         spec2wav_weights_dir = config.WEIGHTS_DIR / args.spec2wav_weights_dir
         degli_hparams = config.load_config(degli_config_path)
@@ -53,29 +52,28 @@ def predict(args):
     # Metrics
     pesq = PerceptualEvaluationSpeechQuality(fs=hparams.sr, mode="wb")
     stoi = ShortTimeObjectiveIntelligibility(fs=hparams.sr)
-    sisdr = ScaleInvariantSignalDistortionRatio().to(hparams.device)
+    sisdr = SI_SDR()
     
     x_wav = open_audio(audio_path, hparams.sr, hparams.audio_len).to(hparams.device)
     x_stftspec = torch.abs(torch.stft(x_wav, 
                                       n_fft=hparams.n_fft,
                                       hop_length=hparams.hop_len,
-                                      window = torch.hann_window(hparams.n_fft),
+                                      window = torch.hann_window(hparams.n_fft).to(x_wav.device),
                                       return_complex=True)).to(hparams.device)  
     audio_seg, mean_seg, std_seg = segment_audio(audio_path, hparams.sr, hparams.audio_len)
     x_wav_hat = []
     with torch.no_grad():
         for n in range(audio_seg.shape[0]):
             x_stftspec_ = torch.abs(torch.stft(audio_seg[n], 
-                                            n_fft=hparams.n_fft,
-                                            hop_length=hparams.hop_len,
-                                            window = torch.hann_window(hparams.n_fft),
-                                            return_complex=True)).to(hparams.device)
-
-            x_melspec = torch.matmul(mel2spec_model.pinvblock.melfb, x_stftspec_**2)
-            x_melspec_db_norm = normalize_db_spectr(to_db(x_melspec, power_spectr=True)).unsqueeze(0).unsqueeze(0)
+                                               n_fft=hparams.n_fft,
+                                               hop_length=hparams.hop_len,
+                                               window = torch.hann_window(hparams.n_fft).to(audio_seg[n].device),
+                                               return_complex=True)).to(hparams.device)
+            x_stftspec_ = normalize_db_spectr(to_db(x_stftspec_))
+            x_melspec_db_norm = torch.matmul(melspec2spec_model.pinvblock.melfb, x_stftspec_).unsqueeze(0).unsqueeze(0)
             
             # MELSPEC2SPEC
-            pred = mel2spec_model(x_melspec_db_norm).squeeze()
+            pred = melspec2spec_model(x_melspec_db_norm).squeeze()
             pred = to_linear(denormalize_db_spectr(pred))
             
             # STFT2WAV
@@ -95,7 +93,7 @@ def predict(args):
         x_stftspec_hat = torch.abs(torch.stft(x_wav_hat, 
                                               n_fft=hparams.n_fft,
                                               hop_length=hparams.hop_len,
-                                              window = torch.hann_window(hparams.n_fft),
+                                              window = torch.hann_window(hparams.n_fft).to(x_wav_hat.device),
                                               return_complex=True))
     
     save_audio(x_wav_hat, x_wav_hat_path, sr=hparams.sr)
@@ -119,7 +117,7 @@ def predict(args):
 if __name__ == "__main__":
         
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mel2spec_model_name', 
+    parser.add_argument('--melspec2spec_model_name', 
                         choices = ["unet", "pinvconv", "pinv"],
                         type=str,
                         default = 'pinvconv')
@@ -129,13 +127,13 @@ if __name__ == "__main__":
                         type=str,
                         default = 'degli')
     
-    parser.add_argument('--mel2spec_weights_dir',
+    parser.add_argument('--melspec2spec_weights_dir',
                         type=str,
-                        default='pinvconv02')
+                        default='newpinvconv00')
     
     parser.add_argument('--spec2wav_weights_dir',
                         type=str,
-                        default='test')
+                        default='pinvconv02_degli00')
     
     parser.add_argument('--degli_blocks',
                         type=int,
