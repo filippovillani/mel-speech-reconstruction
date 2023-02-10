@@ -30,13 +30,13 @@ class SpectrogramDataset(Dataset):
         super(SpectrogramDataset, self).__init__()
         self.data_dir = data_dir
         
-        self.spectr_dir = data_dir / "spectrograms" / ds_type
+        self.spectr_dir = data_dir / "stft" / ds_type
         
         self.spectr_list_path = [self.spectr_dir / path for path in os.listdir(self.spectr_dir)]
        
     def __getitem__(self, idx):
         
-        spectr = normalize_db_spectr(to_db(torch.load(self.spectr_list_path[idx])))
+        spectr = normalize_db_spectr(to_db(torch.abs(torch.load(self.spectr_list_path[idx]))))
         
         return {'spectrogram': spectr}
         

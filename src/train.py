@@ -12,7 +12,7 @@ from torchmetrics import ScaleInvariantSignalDistortionRatio
 from tqdm import tqdm
 
 import config
-from metrics import mse, si_snr_metric
+from metrics import SI_SDR
 from dataset import build_dataloader
 from losses import ComplexMSELoss, FrobeniusLoss, l2_regularization
 from networks.build_model import build_model
@@ -45,7 +45,7 @@ class Trainer:
         
         self.pesq = PerceptualEvaluationSpeechQuality(fs=self.hprms.sr, mode="wb")
         self.stoi = ShortTimeObjectiveIntelligibility(fs=self.hprms.sr)
-        self.sisdr = ScaleInvariantSignalDistortionRatio().to(self.hprms.device)
+        self.sisdr = SI_SDR().to(self.hprms.device)
         if args.resume_training:
             # Load model's weights, optimizer and scheduler from checkpoint
             self.training_state = load_json(self.training_state_path)     
@@ -99,18 +99,18 @@ class Trainer:
                     
                     stftspec_hat_db_norm = self.model(melspec_db_norm).squeeze(1)
                     
-                    loss = mse(stftspec_db_norm, stftspec_hat_db_norm)
+                    loss = self.loss_fn(stftspec_db_norm, stftspec_hat_db_norm)
                     
-                    # if self.hprms.weights_decay is not None:
-                    #     l2_reg = l2_regularization(self.model)
-                    #     loss += self.hprms.weights_decay * l2_reg
+                    if self.hprms.weights_decay is not None:
+                        l2_reg = l2_regularization(self.model)
+                        loss += self.hprms.weights_decay * l2_reg
                         
                     train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
                     loss.backward()  
                     self.optimizer.step()
 
-                    sdr_metric = si_snr_metric(to_linear(denormalize_db_spectr(stftspec_db_norm)),
-                                            to_linear(denormalize_db_spectr(stftspec_hat_db_norm)))
+                    sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(stftspec_hat_db_norm)),
+                                            to_linear(denormalize_db_spectr(stftspec_db_norm)))
                     # train_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-train_scores["si-sdr"]))
    
                     

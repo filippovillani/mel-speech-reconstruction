@@ -16,8 +16,7 @@
     "drop_rate": 0.0,
     "conv_channels": [
         32,
-        64,
-        128
+        64
     ],
     "conv_kernel_size": [
         3,
@@ -32,13 +31,13 @@
     "device": "cuda",
     "num_workers": 0,
     "sr": 16000,
-    "n_mels": 80,
+    "n_mels": 96,
     "n_fft": 1024,
     "n_channels": 1,
     "hop_len": 256,
-    "audio_ms": 1040,
+    "audio_ms": 1020,
     "audio_thresh": 0.1,
-    "audio_len": 16640,
-    "n_frames": 66,
+    "audio_len": 16320,
+    "n_frames": 64,
     "n_stft": 513
 }
