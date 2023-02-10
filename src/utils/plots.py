@@ -5,6 +5,7 @@ import librosa.display
 import matplotlib.pyplot as plt
 import numpy as np
 
+from utils.utils import load_json
 
 def plot_train_hist(experiment_dir: Path):
     """
@@ -19,8 +20,7 @@ def plot_train_hist(experiment_dir: Path):
     """
     train_state_path = experiment_dir / 'train_state.json'
     experiment_name = experiment_dir.stem
-    with open(train_state_path) as fp:
-        training_state = json.load(fp)
+    training_state = load_json(train_state_path)
 
     for metric in training_state["train_hist"].keys():
         save_path = experiment_dir / (metric + '.png')
@@ -80,8 +80,7 @@ def plot_train_hist_degli(experiment_dir: Path):
     """
     train_state_path = experiment_dir / 'train_state.json'
     experiment_name = experiment_dir.stem
-    with open(train_state_path) as fp:
-        training_state = json.load(fp)
+    training_state = load_json(train_state_path)
 
     for metric in training_state["train_hist"].keys():
         # Train

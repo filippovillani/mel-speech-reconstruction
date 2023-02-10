@@ -13,7 +13,7 @@ from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr, set_me
                               segment_audio, to_db, to_linear, save_audio, open_audio, 
                               compute_wav, initialize_random_phase)
 from utils.plots import plot_melspec_prediction
-from utils.utils import save_to_json
+from utils.utils import save_to_json, load_config
 
 
     
@@ -34,7 +34,7 @@ def predict(args):
     
     # Load hparams and build melspec2spec_model
     if args.melspec2spec_model_name != 'pinv':
-        hparams = config.load_config(config_path)
+        hparams = load_config(config_path)
         melspec2spec_weights_dir = config.WEIGHTS_DIR / args.melspec2spec_weights_dir
         melspec2spec_model = build_model(hparams, args.melspec2spec_model_name, melspec2spec_weights_dir, best_weights=True)
         melspec2spec_model.eval()
@@ -44,7 +44,7 @@ def predict(args):
     # Load hparams and build melspec2spec_model
     if args.spec2wav_model_name == "degli":
         spec2wav_weights_dir = config.WEIGHTS_DIR / args.spec2wav_weights_dir
-        degli_hparams = config.load_config(degli_config_path)
+        degli_hparams = load_config(degli_config_path)
         spec2wav_model = build_model(degli_hparams, args.spec2wav_model_name, spec2wav_weights_dir, best_weights=True)
         spec2wav_model.repetitions = args.degli_blocks
         spec2wav_model.eval()

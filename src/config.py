@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 import random
@@ -8,7 +7,9 @@ from pathlib import Path
 import numpy as np
 import torch
 
-def create_hparams():   # training hparams
+
+
+def create_hparams():   
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
@@ -54,18 +55,6 @@ def create_hparams():   # training hparams
     
     return hparams
 
-def save_config(hparams, config_path):
-        
-    with open(config_path, "w") as fp:
-        json.dump(vars(hparams), fp, indent=4)
-
-def load_config(config_path):
-    
-    with open(config_path, "r") as fp:
-        hparams = json.load(fp)
-    hparams = Namespace(**hparams)
-    
-    return hparams
 
 def set_seeds(seed = 42):
     

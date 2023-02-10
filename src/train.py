@@ -15,10 +15,10 @@ from dataset import build_dataloader
 from metrics import SI_SDR
 from losses import ComplexMSELoss, FrobeniusLoss, l2_regularization
 from networks.build_model import build_model
-from utils.audioutils import (compute_wav, denormalize_db_spectr, initialize_random_phase,
-                              normalize_db_spectr, to_db, to_linear, create_noise)
+from utils.audioutils import (compute_wav, denormalize_db_spectr,
+                              initialize_random_phase, to_linear, create_noise)
 from utils.plots import plot_train_hist, plot_train_hist_degli
-from utils.utils import save_to_json, load_json
+from utils.utils import save_to_json, load_json, save_config, load_config
 
 class Trainer:
     def __init__(self, args):
@@ -60,7 +60,7 @@ class Trainer:
             self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=self.hprms.lr_patience)
                
         if self.data_degli_name is not None:
-            data_degli_hprms = config.load_config(self.data_degli_config_path)
+            data_degli_hprms = load_config(self.data_degli_config_path)
             self.data_degli = build_model(data_degli_hprms, "degli", self.data_degli_weights_dir)
         
         if self.task == "melspec2wav":
@@ -103,7 +103,8 @@ class Trainer:
                         l2_reg = l2_regularization(self.model)
                         loss += self.hprms.weights_decay * l2_reg
                         
-                    train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
+                    if (not torch.isnan(loss) and not torch.isinf(loss)): 
+                        train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
                     loss.backward()  
                     self.optimizer.step()    
                     
@@ -348,10 +349,10 @@ class Trainer:
     def _set_hparams(self, resume_training):
 
         if resume_training:
-            self.hprms = config.load_config(self.config_path)
+            self.hprms = load_config(self.config_path)
         else:
             self.hprms = config.create_hparams()
-            config.save_config(self.hprms, self.config_path)
+            save_config(self.hprms, self.config_path)
     
     def _set_loss(self, loss: str):
    
@@ -465,7 +466,7 @@ if __name__ == "__main__":
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='test')
+                        default='newpinvconv00')
     
     parser.add_argument('--task',
                         type=str,
@@ -482,7 +483,7 @@ if __name__ == "__main__":
                         default='pinvconv')
     
     parser.add_argument('--resume_training',
-                        action='store_true',
+                        action='store_false',
                         help="use this flag if you want to restart training from a checkpoint")
 
     parser.add_argument('--data_degli_name',

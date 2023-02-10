@@ -16,7 +16,7 @@ from networks.build_model import build_model
 from griffinlim import griffin_lim, fast_griffin_lim
 from utils.audioutils import (to_db, to_linear, compute_wav, initialize_random_phase,
                               normalize_db_spectr, denormalize_db_spectr)
-from utils.utils import save_to_json
+from utils.utils import save_to_json, load_config
 
 
 class Tester:
@@ -30,7 +30,7 @@ class Tester:
             self.hprms = config.create_hparams()
             self.gla_iter = args.num_iter
         elif self.model_name in ["degli", "pinvconv"]: 
-            self.hprms = config.load_config(self.config_path)
+            self.hprms = load_config(self.config_path)
             self.hprms.batch_size = 1
             self.model = build_model(self.hprms, args.model_name, self.experiment_weights_dir, best_weights=True)
             self.model.repetitions = args.degli_blocks
