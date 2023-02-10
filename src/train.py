@@ -12,7 +12,7 @@ from torchmetrics import ScaleInvariantSignalDistortionRatio
 from tqdm import tqdm
 
 import config
-from metrics import mse
+from metrics import mse, si_snr_metric
 from dataset import build_dataloader
 from losses import ComplexMSELoss, FrobeniusLoss, l2_regularization
 from networks.build_model import build_model
@@ -94,24 +94,24 @@ class Trainer:
                 
                 if self.task == "melspec2spec":
 
-                    stftspec_db_norm = (batch["spectrogram"]).float().to(self.hprms.device)
-                    melspec_db_norm = torch.matmul(self.melfb, stftspec_db_norm).unsqueeze(1)
+                    stftspec_db_norm = batch["spectrogram"].float().to(self.hprms.device)
+                    melspec_db_norm = torch.matmul(self.melfb, stftspec_db_norm).unsqueeze(1) # model.pinvblock.melfb
                     
                     stftspec_hat_db_norm = self.model(melspec_db_norm).squeeze(1)
                     
                     loss = mse(stftspec_db_norm, stftspec_hat_db_norm)
                     
-                    if self.hprms.weights_decay is not None:
-                        l2_reg = l2_regularization(self.model)
-                        loss += self.hprms.weights_decay * l2_reg
+                    # if self.hprms.weights_decay is not None:
+                    #     l2_reg = l2_regularization(self.model)
+                    #     loss += self.hprms.weights_decay * l2_reg
                         
                     train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
                     loss.backward()  
                     self.optimizer.step()
 
-                    sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(stftspec_db_norm)),
+                    sdr_metric = si_snr_metric(to_linear(denormalize_db_spectr(stftspec_db_norm)),
                                             to_linear(denormalize_db_spectr(stftspec_hat_db_norm)))
-                    train_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-train_scores["si-sdr"]))
+                    # train_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-train_scores["si-sdr"]))
    
                     
                     # sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)),
@@ -191,30 +191,47 @@ class Trainer:
                 
                 # if n == 100:
                 #     break
-
+            self.training_state["train_loss_hist"].append(train_scores["loss"].item())
+            self.training_state["train_score_hist"].append(train_scores["si-sdr"].item())
+            print(f'Training loss:     {self.training_state["train_loss_hist"][-1]:.4f}')
+            print(f'Training SI-SNR:   {self.training_state["train_score_hist"][-1]:.4f} dB\n')
+            
             # Evaluate on the validation set
-            val_scores = self.eval_model(model = self.model, 
-                                         test_dl = val_dl,
-                                         task = self.task)
-            if self.task == "melspec2spec":
-                self.lr_sched.step(val_scores["si-sdr"])
-            elif self.task in ["spec2wav", "melspec2wav"]:
-                self.lr_sched.step(val_scores["pesq"])
-            # Update and save training state
-            self._update_training_state(train_scores, val_scores)
-            self._save_training_state()
-            # Save plot of train history
-            if self.task in ["spec2wav", "melspec2wav"]:
-                plot_train_hist_degli(self.experiment_dir)
+            print(f'Evaluating the model on validation set...')
+            val_score, val_loss = self.eval_model(model=self.model, 
+                                            dataloader=val_dl)
+            
+            self.training_state["val_loss_hist"].append(val_loss.item())
+            self.training_state["val_score_hist"].append(val_score.item())
+            
+            print(f'Validation Loss:   {val_loss:.4f}')
+            print(f'Validation SI-SNR: {val_score:.4f} dB\n')
+            
+            if val_score <= self.training_state["best_val_score"]:
+                self.training_state["patience_epochs"] += 1
+                print(f'\nBest epoch was Epoch {self.training_state["best_epoch"]}: Validation SI-SNR = {self.training_state["best_val_score"]} dB')
             else:
-                plot_train_hist(self.experiment_dir)            
+                self.training_state["patience_epochs"] = 0
+                self.training_state["best_val_score"] = val_score.item()
+                self.training_state["best_val_loss"] = val_loss.item()
+                self.training_state["best_epoch"] = self.training_state["epochs"]
+                print("\nSI-SNR on validation set improved")
+                # Save the best self.model
+                torch.save(self.model.state_dict(), self.best_weights_path)
+                    
+            # Save checkpoint to resume training
+            save_to_json(self.training_state, self.training_state_path)
+                
+            torch.save(self.model.state_dict(), self.ckpt_weights_path)
+            torch.save(self.optimizer.state_dict(), self.ckpt_opt_path)
 
-            print(f'Epoch time: {int(((time()-start_epoch))//60)} min {int(((time()-start_epoch))%60)} s')
+            print(f'Epoch time: {int(((time()-start_epoch))//60)} min {int((((time()-start_epoch))%60)*60/100)} s')
             print('_____________________________')
 
-        print("____________________________________________")
-        print("          Training completed")    
-        print("____________________________________________")
+        print('Best epoch was Epoch ', self.training_state["best_epoch"])    
+        print('val MSE Loss    :  \t', self.training_state["val_loss_hist"][self.training_state["best_epoch"]-1])
+        print('val SI-SNR Score: \t', self.training_state["best_val_score"])
+        print('____________________________________________')
 
         return self.training_state
     

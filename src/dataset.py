@@ -12,24 +12,22 @@ def build_dataloader(hparams: Namespace,
                      ds_type: str = "train") -> DataLoader:
     
     shuffle = True if ds_type == "train" else False
- 
-    ds = STFTDataset(data_dir, 
-                     ds_type = ds_type)
     
+    ds = SpectrogramDataset(data_dir, 
+                        ds_type = ds_type)
     dataloader = DataLoader(ds, 
                             batch_size = hparams.batch_size,
                             num_workers = hparams.num_workers, 
-                            shuffle = shuffle,
-                            drop_last = True)
+                            shuffle=shuffle)
+
+    
     return dataloader
     
-    
-class STFTDataset(Dataset):
+class SpectrogramDataset(Dataset):
     def __init__(self, 
-                 data_dir: Path,
+                 data_dir: str,
                  ds_type: str = "train"):
-        
-        super(STFTDataset, self).__init__()
+        super(SpectrogramDataset, self).__init__()
         self.data_dir = data_dir
         
         self.spectr_dir = data_dir / "spectrograms" / ds_type
@@ -44,5 +42,4 @@ class STFTDataset(Dataset):
         
     def __len__(self):
         return len(os.listdir(self.spectr_dir))
-
 
