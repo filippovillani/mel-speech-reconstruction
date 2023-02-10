@@ -25,18 +25,18 @@ def create_hparams():   # training hparams
     model_hparams = Namespace(first_unet_channel_units = 32,
                                   unet_kernel_size = (3,3),
                                   drop_rate = 0.0,
-                                  conv_channels = [32, 64, 128],
+                                  conv_channels = [32, 64],
                                   conv_kernel_size = (3,3),
                                   degli_hidden_channels = 32,
                                   degli_kernel_size = (5,3),
                                   degli_data_lr = 1e-6)
     
     audio_hparams = Namespace(sr = 16000,
-                              n_mels = 80,
+                              n_mels = 96,
                               n_fft = 1024,
                               n_channels = 1,
                               hop_len = 256,
-                              audio_ms = 1040,
+                              audio_ms = 1020,
                               audio_thresh = 0.1)
     # Other useful audio parameters
     audio_len_ = int(audio_hparams.sr * audio_hparams.audio_ms // 1000)
