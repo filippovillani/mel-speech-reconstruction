@@ -41,6 +41,7 @@ def split_dataframes(df: pd.DataFrame,
     
     return train_df, val_df, test_df
 
+
 def build_data(hparams: Namespace,
                df: pd.DataFrame,
                out_dir: Path,
@@ -88,11 +89,12 @@ def build_data(hparams: Namespace,
             # Normalize audio
             out = torch.as_tensor(standardization(audio_out[n]))
             spectr_path = out_dir / (audio_name + f'_seg{n}.pt')
-            spectr = torch.stft(input=out, 
+            x_stft = torch.stft(input=out, 
                                 n_fft=hparams.n_fft,
                                 hop_length=hparams.hop_len,
+                                window = torch.hann_window(hparams.n_fft),
                                 return_complex=True)
-            torch.save(spectr, spectr_path)
+            torch.save(x_stft, spectr_path)
 
 def main():
 

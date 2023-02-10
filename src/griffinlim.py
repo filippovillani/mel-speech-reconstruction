@@ -13,7 +13,10 @@ def griffin_lim(spectrogram: torch.Tensor,
     X = spectrogram * torch.exp(1j * X_init_phase)
     for _ in range(n_iter):
         X_hat = torch.istft(X, n_fft=n_fft)    # G+ cn
-        X_hat = torch.stft(X_hat, n_fft=n_fft, return_complex = True) # G G+ cn  
+        X_hat = torch.stft(X_hat, 
+                           n_fft=n_fft, 
+                           return_complex = True,
+                           window = torch.hann_window(n_fft)) # G G+ cn  
         X_phase = torch.angle(X_hat) 
         X = spectrogram * torch.exp(1j * X_phase)   # Pc1(Pc2(cn-1))  
     
@@ -33,13 +36,20 @@ def fast_griffin_lim(spectrogram: torch.Tensor,
     # Initialize the algorithm
     X = spectrogram * torch.exp(1j * X_init_phase)
     prev_proj = torch.istft(X, n_fft=n_fft)
-    prev_proj = torch.stft(prev_proj, n_fft=n_fft, return_complex = True)
+    prev_proj = torch.stft(prev_proj, 
+                           n_fft=n_fft, 
+                           window = torch.hann_window(n_fft),
+                           return_complex = True)
+
     prev_proj_phase = torch.angle(prev_proj) 
     prev_proj = spectrogram * torch.exp(1j * prev_proj_phase) 
     
     for _ in range(n_iter+1):
         curr_proj = torch.istft(X, n_fft=n_fft)    # G+ cn            
-        curr_proj = torch.stft(curr_proj, n_fft=n_fft, return_complex = True) # G G+ cn  
+        curr_proj = torch.stft(curr_proj, 
+                               n_fft=n_fft, 
+                               window = torch.hann_window(n_fft),
+                               return_complex = True) # G G+ cn  
 
         curr_proj_phase = torch.angle(curr_proj) 
         curr_proj = spectrogram * torch.exp(1j * curr_proj_phase)   # Pc1(Pc2(cn-1))  

@@ -53,7 +53,8 @@ class DeGLIBlock(nn.Module):
         x_cons_proj = torch.istft(x_amp_proj, 
                                   n_fft = self.hprms.n_fft) # G+ x
         x_cons_proj = torch.stft(x_cons_proj, 
-                                 n_fft = self.hprms.n_fft, 
+                                 n_fft = self.hprms.n_fft,
+                                 window = torch.hann_window(hparams.n_fft), 
                                  return_complex = True) # G G+ x 
        
         return x_cons_proj

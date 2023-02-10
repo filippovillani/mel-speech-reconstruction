@@ -57,9 +57,10 @@ def predict(args):
     
     x_wav = open_audio(audio_path, hparams.sr, hparams.audio_len).to(hparams.device)
     x_stftspec = torch.abs(torch.stft(x_wav, 
-                                    n_fft=hparams.n_fft,
-                                    hop_length=hparams.hop_len,
-                                    return_complex=True)).to(hparams.device)  
+                                      n_fft=hparams.n_fft,
+                                      hop_length=hparams.hop_len,
+                                      window = torch.hann_window(hparams.n_fft),
+                                      return_complex=True)).to(hparams.device)  
     audio_seg, mean_seg, std_seg = segment_audio(audio_path, hparams.sr, hparams.audio_len)
     x_wav_hat = []
     with torch.no_grad():
@@ -67,6 +68,7 @@ def predict(args):
             x_stftspec_ = torch.abs(torch.stft(audio_seg[n], 
                                             n_fft=hparams.n_fft,
                                             hop_length=hparams.hop_len,
+                                            window = torch.hann_window(hparams.n_fft),
                                             return_complex=True)).to(hparams.device)
 
             x_melspec = torch.matmul(mel2spec_model.pinvblock.melfb, x_stftspec_**2)
@@ -91,9 +93,10 @@ def predict(args):
             
         x_wav_hat = torch.stack(x_wav_hat, dim=0).reshape(-1)[:len(x_wav)]
         x_stftspec_hat = torch.abs(torch.stft(x_wav_hat, 
-                                            n_fft=hparams.n_fft,
-                                            hop_length=hparams.hop_len,
-                                            return_complex=True))
+                                              n_fft=hparams.n_fft,
+                                              hop_length=hparams.hop_len,
+                                              window = torch.hann_window(hparams.n_fft),
+                                              return_complex=True))
     
     save_audio(x_wav_hat, x_wav_hat_path, sr=hparams.sr)
     
