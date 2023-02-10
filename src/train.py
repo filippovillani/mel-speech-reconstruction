@@ -15,8 +15,8 @@ import config
 from dataset import build_dataloader
 from losses import ComplexMSELoss, FrobeniusLoss, l2_regularization
 from networks.build_model import build_model
-from utils.audioutils import (compute_wav, denormalize_db_spectr,
-                              normalize_db_spectr, to_db, to_linear)
+from utils.audioutils import (compute_wav, denormalize_db_spectr, initialize_random_phase,
+                              normalize_db_spectr, to_db, to_linear, create_noise)
 from utils.plots import plot_train_hist, plot_train_hist_degli
 from utils.utils import save_to_json, load_json
 
@@ -129,15 +129,16 @@ class Trainer:
                     x_wav = compute_wav(x_stft, n_fft=self.hprms.n_fft).squeeze()
                     x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze().detach()
                     
-                    # STOI
-                    stoi_metric = self.stoi(x_wav_hat, x_wav) 
-                    train_scores["stoi"] += ((1./(n+1))*(stoi_metric-train_scores["stoi"]))
-                    # PESQ (check if there is no utterance)
+                    # PESQ (check if there is no utterance) + STOI
                     try:
                         pesq_metric = self.pesq(x_wav_hat, x_wav)
+                        stoi_metric = self.stoi(x_wav_hat, x_wav) 
                     except:
                         pesq_metric = train_scores["pesq"]
+                        stoi_metric = train_scores["stoi"]
+                        
                     train_scores["pesq"]  += ((1./(n+1))*(pesq_metric-train_scores["pesq"]))
+                    train_scores["stoi"] += ((1./(n+1))*(stoi_metric-train_scores["stoi"]))
 
                     
                 elif self.task == "melspec2wav":
@@ -150,7 +151,11 @@ class Trainer:
                     
                     x_stft_hat = self.model(x_stft_noise, x_stftspec_hat)
                     
+                    # x_stft is actually x_stft_hat with x_stft phase
                     loss = self.loss_fn(x_stft_hat, x_stft)
+                    if self.hprms.weights_decay is not None:
+                        l2_reg = l2_regularization(self.model)
+                        loss += self.hprms.weights_decay * l2_reg
                     train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
                     loss.backward()  
                     self.optimizer.step()
@@ -159,16 +164,16 @@ class Trainer:
                     x_wav = compute_wav(x_stft, n_fft=self.hprms.n_fft).squeeze()
                     x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze().detach()
                     
-                    # STOI
-                    stoi_metric = self.stoi(x_wav_hat, x_wav) 
-                    train_scores["stoi"] += ((1./(n+1))*(stoi_metric-train_scores["stoi"]))
-                    # PESQ (check if there is no utterance)
+                    # PESQ (check if there is no utterance) + STOI
                     try:
                         pesq_metric = self.pesq(x_wav_hat, x_wav)
+                        stoi_metric = self.stoi(x_wav_hat, x_wav) 
                     except:
                         pesq_metric = train_scores["pesq"]
+                        stoi_metric = train_scores["stoi"]
+                        
                     train_scores["pesq"]  += ((1./(n+1))*(pesq_metric-train_scores["pesq"]))
-                
+                    train_scores["stoi"] += ((1./(n+1))*(stoi_metric-train_scores["stoi"]))
                 else:
                     raise ValueError(f"task must be one of [melspec2spec, spec2wav, melspec2wav], \
                         received {self.task}")
@@ -176,8 +181,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                # if n == 50:
-                #     break
+                if n == 50:
+                    break
 
             # Evaluate on the validation set
             val_scores = self.eval_model(model = self.model, 
@@ -212,13 +217,13 @@ class Trainer:
         x_stftphase = torch.angle(x_stft)
         x_stft_hat = x_stftspec_hat * torch.exp(1j * x_stftphase)
         
-        noise = self._create_noise(x_stftspec_hat, 
-                                   max_snr_db = self.hprms.max_snr_db,
-                                   min_snr_db = self.hprms.min_snr_db)
+        noise = create_noise(x_stftspec_hat, 
+                             max_snr_db = self.hprms.max_snr_db,
+                             min_snr_db = self.hprms.min_snr_db)
         
         x_stft_noise = x_stft_hat + noise
         
-        return x_stft, x_stft_noise
+        return x_stft_hat, x_stft_noise
     
     
     def _preprocess_mel2spec_batch(self, batch):
@@ -238,7 +243,8 @@ class Trainer:
         self.data_degli.repetitions = torch.randint(min_degli_rep, max_degli_rep, size=(1,))
         with torch.no_grad():
             x_stft = batch["stft"].to(self.hprms.device)
-            x_stft_noise = self._initialize_random_phase(x_stft)
+            x_stftspec = torch.abs(x_stft)
+            x_stft_noise = initialize_random_phase(x_stftspec)
             x_stft_noise = self.data_degli(x_stft_noise, torch.abs(x_stft).float())
         return x_stft, x_stft_noise
         
@@ -246,34 +252,13 @@ class Trainer:
     def _preprocess_degli_awgndata_batch(self, batch):
         
         x_stft = batch["stft"].to(self.hprms.device)
-        noise = self._create_noise(x_stft, 
-                                   max_snr_db = self.hprms.max_snr_db,
-                                   min_snr_db = self.hprms.min_snr_db)
+        noise = create_noise(x_stft, 
+                             max_snr_db = self.hprms.max_snr_db,
+                             min_snr_db = self.hprms.min_snr_db)
         
         x_stft_noise = x_stft + noise
         
         return x_stft, x_stft_noise
-    
-    
-    def _initialize_random_phase(self, x_stft):
-        
-        x_stft_mag = torch.abs(x_stft)
-        phase = torch.zeros_like(x_stft_mag)
-        x_stft = x_stft_mag * torch.exp(1j * phase)
-        return x_stft
-    
-    
-    def _create_noise(self, signal, max_snr_db = 12, min_snr_db = -6):
-    
-        sdr_db = (max_snr_db - min_snr_db) * torch.rand((1)) + min_snr_db
-        sdr = torch.pow(10, sdr_db/10).to(signal.device)
-
-        signal_power = torch.mean(torch.abs(signal) ** 2)
-        
-        noise_power = signal_power / (sdr + 1e-12)
-        noise = torch.sqrt(noise_power) * torch.randn_like(signal)
-        
-        return noise
     
     
     def eval_model(self,
@@ -308,8 +293,9 @@ class Trainer:
                 
                 elif task == "spec2wav":
                     x_stft = batch["stft"].to(model.device)
-                    x_stft_noise = self._initialize_random_phase(x_stft)
-                    x_stft_hat = self.model(x_stft_noise, torch.abs(x_stft).float())
+                    x_stft_spec = torch.abs(x_stft).float()
+                    x_stft_noise = initialize_random_phase(x_stft_spec)
+                    x_stft_hat = self.model(x_stft_noise, x_stft_spec)
                     
                     x_wav = compute_wav(x_stft, n_fft=self.hprms.n_fft).squeeze()
                     x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze().detach()                
@@ -317,45 +303,47 @@ class Trainer:
                         x_wav = x_wav.unsqueeze(0)
                         x_wav_hat = x_wav_hat.unsqueeze(0)
                     
-                    # Compute metrics
-                    stoi_metric = self.stoi(x_wav_hat, x_wav) 
-                    test_scores["stoi"] += ((1./(n+1))*(stoi_metric-test_scores["stoi"]))
-                        
+                    # PESQ (check if there is no utterance) + STOI
                     try:
-                        pesq_metric = self.pesq(x_wav_hat, x_wav) 
+                        pesq_metric = self.pesq(x_wav_hat, x_wav)
+                        stoi_metric = self.stoi(x_wav_hat, x_wav) 
                     except:
                         pesq_metric = test_scores["pesq"]
-                    test_scores["pesq"] += ((1./(n+1))*(pesq_metric-test_scores["pesq"]))
+                        stoi_metric = test_scores["stoi"]
+                        
+                    test_scores["pesq"]  += ((1./(n+1))*(pesq_metric-test_scores["pesq"]))
+                    test_scores["stoi"] += ((1./(n+1))*(stoi_metric-test_scores["stoi"]))
 
                 elif task == "melspec2wav":
+
                     _, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch) 
                     with torch.no_grad():
                         x_stftspec_hat_db_norm = self.mel2spec_model(x_melspec_db_norm).squeeze(1)
                         x_stftspec_hat = to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm))
                         x_stft, _ = self._preprocess_melspec2wav_batch(batch, x_stftspec_hat) 
-                        x_stft_noise = self._initialize_random_phase(x_stft)
+                        x_stft_noise = initialize_random_phase(torch.abs(x_stft))
                         
-                    x_stft_hat = model(x_stft_noise, x_stftspec_hat)
+                        x_stft_hat = model(x_stft_noise, x_stftspec_hat)
                     
                     x_wav = compute_wav(x_stft, n_fft=self.hprms.n_fft).squeeze()
                     x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze().detach()                
-
-                    
-                    # Compute metrics
-                    stoi_metric = self.stoi(x_wav_hat, x_wav) 
-                    test_scores["stoi"] += ((1./(n+1))*(stoi_metric-test_scores["stoi"]))
-                        
+     
+                    # PESQ (check if there is no utterance) + STOI
                     try:
-                        pesq_metric = self.pesq(x_wav_hat, x_wav) 
+                        pesq_metric = self.pesq(x_wav_hat, x_wav)
+                        stoi_metric = self.stoi(x_wav_hat, x_wav) 
                     except:
                         pesq_metric = test_scores["pesq"]
-                    test_scores["pesq"] += ((1./(n+1))*(pesq_metric-test_scores["pesq"]))
+                        stoi_metric = test_scores["stoi"]
+                        
+                    test_scores["pesq"]  += ((1./(n+1))*(pesq_metric-test_scores["pesq"]))
+                    test_scores["stoi"] += ((1./(n+1))*(stoi_metric-test_scores["stoi"]))
                     
                 scores_to_print = str({k: round(float(v), 4) for k, v in test_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                # if n == 50:
-                #     break  
+                if n == 50:
+                    break  
                  
         return test_scores
 

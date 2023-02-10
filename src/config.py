@@ -14,7 +14,7 @@ def create_hparams():   # training hparams
     
     training_hparams = Namespace(batch_size = 1,
                                  lr = 1e-4,
-                                 weights_decay = 1e-4,
+                                 weights_decay = 1e-2,
                                  epochs = 70,
                                  patience = 10,
                                  lr_patience = 3,
@@ -29,7 +29,6 @@ def create_hparams():   # training hparams
                                   conv_kernel_size = (3,3),
                                   degli_hidden_channels = 32,
                                   degli_kernel_size = (5,3),
-                                  val_degli_rep = 3,
                                   degli_data_lr = 1e-6)
     
     audio_hparams = Namespace(sr = 16000,
