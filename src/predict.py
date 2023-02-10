@@ -10,7 +10,8 @@ import config
 from griffinlim import fast_griffin_lim, griffin_lim
 from networks.build_model import build_model
 from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr, set_mean_std,
-                              segment_audio, to_db, to_linear, save_audio, open_audio, compute_wav)
+                              segment_audio, to_db, to_linear, save_audio, open_audio, 
+                              compute_wav, initialize_random_phase)
 from utils.plots import plot_melspec_prediction
 from utils.utils import save_to_json
 
@@ -24,7 +25,7 @@ def predict(args):
     mel2spec_dir = config.MELSPEC2SPEC_DIR / args.mel2spec_weights_dir
     experiment_dir = config.MELSPEC2WAV_DIR / (args.mel2spec_model_name + "_" + args.spec2wav_model_name)
     config_path = mel2spec_dir / "config.json"
-    degli_config_path = config.SPEC2WAV_DIR / args.spec2wav_weights_dir / "config.json"
+    degli_config_path = config.MELSPEC2WAV_DIR / args.spec2wav_weights_dir / "config.json"
     x_wav_hat_path = experiment_dir / 'gla_from_melspec.wav'
     metrics_path = experiment_dir / 'prediction_metrics.json'    
     prediction_img_path = experiment_dir / 'prediction.png'  
@@ -110,13 +111,7 @@ def predict(args):
                "stoi": float(stoi(x_wav_hat, x_wav)),
                "pesq": float(pesq(x_wav_hat, x_wav))}
     save_to_json(metrics, metrics_path)
-
-
-def initialize_random_phase(x_stft_mag):
-    
-    phase = torch.zeros_like(x_stft_mag)
-    x_stft = x_stft_mag * torch.exp(1j * phase)
-    return x_stft      
+  
     
 if __name__ == "__main__":
         

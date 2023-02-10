@@ -7,11 +7,6 @@ import torch
 def open_audio(audio_path, sr, audio_len):
 
     audio, _ = librosa.load(audio_path, sr=sr)
-    # pad_len = audio_len - (len(audio) % audio_len)
-    # if pad_len != 0:
-    #     pad = np.zeros((pad_len,))
-    #     audio = np.concatenate((audio, pad))
-    
     audio = torch.as_tensor(audio)
     audio = standardization(audio)
     
@@ -32,7 +27,7 @@ def save_audio(x_wav, x_wav_path, sr = 16000):
     
     if isinstance(x_wav, torch.Tensor):
         x_wav = x_wav.cpu().detach().numpy()
-    x_wav = min_max_normalization(x_wav)
+    x_wav = min_max_normalization(x_wav.squeeze())
     sf.write(x_wav_path, x_wav, sr)
 
 
@@ -93,7 +88,30 @@ def segment_audio(audio_path, sr, audio_len):
     audio_out[-1] = pad_audio(audio_out[-1], audio_len)
     audio_out = torch.stack(audio_out, dim=0)
     return audio_out, mean, std
+
+
+def initialize_random_phase(x_stft_mag, init = "randn"):
     
+    if init == "randn":
+        phase = torch.randn_like(x_stft_mag)
+    elif init == "zeros":
+        phase = torch.zeros_like(x_stft_mag)
+        
+    x_stft = x_stft_mag * torch.exp(1j * phase)
+    return x_stft    
+
+
+def create_noise(signal, max_snr_db = 12, min_snr_db = -6):
+
+    sdr_db = (max_snr_db - min_snr_db) * torch.rand((1)) + min_snr_db
+    sdr = torch.pow(10, sdr_db/10).to(signal.device)
+
+    signal_power = torch.mean(torch.abs(signal) ** 2)
+    
+    noise_power = signal_power / (sdr + 1e-12)
+    noise = torch.sqrt(noise_power) * torch.randn_like(signal)
+    
+    return noise
 
 def min_max_normalization(x_wav):
     if isinstance(x_wav, torch.Tensor):

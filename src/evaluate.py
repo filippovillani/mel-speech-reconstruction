@@ -13,7 +13,8 @@ import config
 from dataset import build_dataloader
 from networks.build_model import build_model
 from griffinlim import griffin_lim, fast_griffin_lim
-from utils.audioutils import to_db, to_linear, compute_wav, normalize_db_spectr, denormalize_db_spectr
+from utils.audioutils import (to_db, to_linear, compute_wav, initialize_random_phase,
+                              normalize_db_spectr, denormalize_db_spectr)
 from utils.utils import save_to_json
 
 
@@ -73,7 +74,7 @@ class Tester:
                     x_wav = compute_wav(x_stft, n_fft=self.hprms.n_fft).squeeze()
                     
                     if self.model_name == "degli":
-                        x_stft_noisy = self._initialize_random_phase(x_stft_mag)
+                        x_stft_noisy = initialize_random_phase(x_stft_mag)
                         x_stft_hat = self.model(x_stft_noisy, x_stft_mag)
                         x_wav_hat = compute_wav(x_stft_hat, n_fft=self.hprms.n_fft).squeeze().detach()
                     elif self.model_name == "gla":
@@ -110,13 +111,6 @@ class Tester:
         x_melspec_db_norm = normalize_db_spectr(to_db(x_melspec, power_spectr=True))
         
         return x_stftspec_db_norm, x_melspec_db_norm
-    
-         
-    def _initialize_random_phase(self, x_stft_mag):
-        
-        phase = torch.zeros_like(x_stft_mag)
-        x_stft = x_stft_mag * torch.exp(1j * phase)
-        return x_stft        
 
 
     def _set_paths(self, experiment_name):
