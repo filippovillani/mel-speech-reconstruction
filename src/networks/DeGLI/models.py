@@ -51,10 +51,11 @@ class DeGLIBlock(nn.Module):
     def _consistency_projection(self, x_amp_proj):
 
         x_cons_proj = torch.istft(x_amp_proj, 
-                                  n_fft = self.hprms.n_fft) # G+ x
+                                  n_fft = self.hprms.n_fft,
+                                  window = torch.hann_window(self.hprms.n_fft), ) # G+ x
         x_cons_proj = torch.stft(x_cons_proj, 
                                  n_fft = self.hprms.n_fft,
-                                 window = torch.hann_window(hparams.n_fft), 
+                                 window = torch.hann_window(self.hprms.n_fft), 
                                  return_complex = True) # G G+ x 
        
         return x_cons_proj

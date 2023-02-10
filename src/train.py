@@ -26,7 +26,7 @@ class Trainer:
         self.model_name = args.model_name
         self.task = args.task
         self.data_degli_name = args.data_degli_name
-        self._set_paths(args.task, args.experiment_name, args.data_degli_name, args.mel2spec_data_name)
+        self._set_paths(args.task, args.experiment_name, args.data_degli_name, args.melspec2spec_data_name)
         self._set_hparams(args.resume_training)
         self._set_loss(self.hprms.loss)
         
@@ -64,8 +64,8 @@ class Trainer:
             self.data_degli = build_model(data_degli_hprms, "degli", self.data_degli_weights_dir)
         
         if self.task == "melspec2wav":
-            self.mel2spec_model = build_model(self.hprms, args.mel2spec_model_name, self.mel2spec_weights_dir, best_weights=True)
-            self.mel2spec_model.eval()
+            self.melspec2spec_model = build_model(self.hprms, args.melspec2spec_model_name, self.melspec2spec_weights_dir, best_weights=True)
+            self.melspec2spec_model.eval()
             
             
     def train(self, train_dl, val_dl):
@@ -93,7 +93,8 @@ class Trainer:
                 
                 if self.task == "melspec2spec":
 
-                    x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch)
+                    x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_melspec2spec_batch(batch)
+
                     x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze(1)
                     
                     loss = self.loss_fn(x_stftspec_db_norm, x_stftspec_hat_db_norm)
@@ -143,9 +144,9 @@ class Trainer:
                     
                 elif self.task == "melspec2wav":
 
-                    _, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch)
+                    _, x_melspec_db_norm = self._preprocess_melspec2spec_batch(batch)
                     with torch.no_grad():
-                        x_stftspec_hat_db_norm = self.mel2spec_model(x_melspec_db_norm).squeeze(1)
+                        x_stftspec_hat_db_norm = self.melspec2spec_model(x_melspec_db_norm).squeeze(1)
                         x_stftspec_hat = to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm))
                         x_stft, x_stft_noise = self._preprocess_melspec2wav_batch(batch, x_stftspec_hat)
                     
@@ -181,14 +182,14 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                if n == 50:
+                if n == 100:
                     break
 
             # Evaluate on the validation set
             val_scores = self.eval_model(model = self.model, 
                                          test_dl = val_dl,
                                          task = self.task)
-            if self.task == "mel2spec":
+            if self.task == "melspec2spec":
                 self.lr_sched.step(val_scores["si-sdr"])
             elif self.task in ["spec2wav", "melspec2wav"]:
                 self.lr_sched.step(val_scores["pesq"])
@@ -226,14 +227,14 @@ class Trainer:
         return x_stft_hat, x_stft_noise
     
     
-    def _preprocess_mel2spec_batch(self, batch):
+    def _preprocess_melspec2spec_batch(self, batch):
         
         x_stft = batch["stft"].to(self.hprms.device)
         x_stftspec = torch.abs(x_stft).float()
-        x_melspec = torch.matmul(self.melfb, x_stftspec**2).unsqueeze(1)
-        
         x_stftspec_db_norm = normalize_db_spectr(to_db(x_stftspec)).float()
-        x_melspec_db_norm = normalize_db_spectr(to_db(x_melspec, power_spectr=True))
+        x_melspec_db_norm = torch.matmul(self.melfb, x_stftspec_db_norm).unsqueeze(1)
+        
+        # x_melspec_db_norm = normalize_db_spectr(to_db(x_melspec, power_spectr=True))
 
         return x_stftspec_db_norm, x_melspec_db_norm
     
@@ -277,7 +278,7 @@ class Trainer:
             for n, batch in enumerate(pbar):   
                 
                 if task == "melspec2spec":
-                    x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch)
+                    x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_melspec2spec_batch(batch)
                     x_stftspec_hat_db_norm = model(x_melspec_db_norm).squeeze(1)
                     
                     loss = self.loss_fn(x_stftspec_db_norm, x_stftspec_hat_db_norm)
@@ -316,9 +317,9 @@ class Trainer:
 
                 elif task == "melspec2wav":
 
-                    _, x_melspec_db_norm = self._preprocess_mel2spec_batch(batch) 
+                    _, x_melspec_db_norm = self._preprocess_melspec2spec_batch(batch) 
                     with torch.no_grad():
-                        x_stftspec_hat_db_norm = self.mel2spec_model(x_melspec_db_norm).squeeze(1)
+                        x_stftspec_hat_db_norm = self.melspec2spec_model(x_melspec_db_norm).squeeze(1)
                         x_stftspec_hat = to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm))
                         x_stft, _ = self._preprocess_melspec2wav_batch(batch, x_stftspec_hat) 
                         x_stft_noise = initialize_random_phase(torch.abs(x_stft))
@@ -371,7 +372,7 @@ class Trainer:
                    task, 
                    experiment_name, 
                    data_degli_name = None,
-                   mel2spec_data_name = None):
+                   melspec2spec_data_name = None):
    
         if task == "melspec2spec":
             results_dir = config.MELSPEC2SPEC_DIR 
@@ -382,7 +383,7 @@ class Trainer:
                 self.data_degli_config_path = results_dir / data_degli_name / "config.json"
         elif task == "melspec2wav":
             results_dir = config.MELSPEC2WAV_DIR
-            self.mel2spec_weights_dir = config.WEIGHTS_DIR / mel2spec_data_name
+            self.melspec2spec_weights_dir = config.WEIGHTS_DIR / melspec2spec_data_name
             if data_degli_name is not None:
                 self.data_degli_weights_dir = config.WEIGHTS_DIR / data_degli_name
                 self.data_degli_config_path = results_dir / data_degli_name / "config.json"
@@ -464,7 +465,7 @@ if __name__ == "__main__":
     parser.add_argument('--model_name',
                         type=str,
                         choices=["unet", "pinvconv", "pinvunet", "degli"],
-                        default='degli')
+                        default='pinvconv')
     
     parser.add_argument('--experiment_name',
                         type=str,
@@ -473,13 +474,13 @@ if __name__ == "__main__":
     parser.add_argument('--task',
                         type=str,
                         choices=["melspec2spec", "spec2wav", "melspec2wav"],
-                        default='melspec2wav')
+                        default='melspec2spec')
     
-    parser.add_argument('--mel2spec_data_name',
+    parser.add_argument('--melspec2spec_data_name',
                         type=str,
                         default='pinvconv02')
     
-    parser.add_argument('--mel2spec_model_name',
+    parser.add_argument('--melspec2spec_model_name',
                         type=str,
                         choices=["pinvconv", "pinvunet"],
                         default='pinvconv')

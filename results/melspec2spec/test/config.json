@@ -1,7 +1,7 @@
 {
     "batch_size": 1,
     "lr": 0.0001,
-    "weights_decay": 0.0001,
+    "weights_decay": null,
     "epochs": 70,
     "patience": 10,
     "lr_patience": 3,
@@ -20,7 +20,7 @@
         128
     ],
     "conv_kernel_size": [
-        3,
+        5,
         3
     ],
     "degli_hidden_channels": 32,
@@ -35,10 +35,10 @@
     "n_mels": 80,
     "n_fft": 1024,
     "n_channels": 1,
-    "hop_len": 128,
+    "hop_len": 256,
     "audio_ms": 1040,
-    "min_noise_ms": 1000,
+    "audio_thresh": 0.1,
     "audio_len": 16640,
-    "n_frames": 131,
+    "n_frames": 66,
     "n_stft": 513
 }

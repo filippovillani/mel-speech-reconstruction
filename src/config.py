@@ -14,7 +14,7 @@ def create_hparams():   # training hparams
     
     training_hparams = Namespace(batch_size = 1,
                                  lr = 1e-4,
-                                 weights_decay = 1e-2,
+                                 weights_decay = None,
                                  epochs = 70,
                                  patience = 10,
                                  lr_patience = 3,
@@ -37,7 +37,7 @@ def create_hparams():   # training hparams
                               n_channels = 1,
                               hop_len = 256,
                               audio_ms = 1040,
-                              min_noise_ms = 1000)
+                              audio_thresh = 0.1)
     # Other useful audio parameters
     audio_len_ = int(audio_hparams.sr * audio_hparams.audio_ms // 1000)
     n_frames_ = int(audio_len_ // audio_hparams.hop_len + 1)

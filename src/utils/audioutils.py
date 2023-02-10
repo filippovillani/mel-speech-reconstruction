@@ -16,9 +16,13 @@ def open_audio(audio_path, sr, audio_len):
 def compute_wav(x_stft, n_fft):
 
     if x_stft.dim() == 3:
-        x_wav = torch.stack([torch.istft(x_stft[b], n_fft=n_fft) for b in range(x_stft.shape[0])], dim=0)
+        x_wav = torch.stack([torch.istft(x_stft[b], 
+                                         n_fft = n_fft, 
+                                         window = torch.hann_window(1024)) for b in range(x_stft.shape[0])], dim=0)
     else:
-        x_wav = torch.istft(x_stft, n_fft=n_fft)
+        x_wav = torch.istft(x_stft, 
+                            n_fft = n_fft,
+                            window = torch.hann_window(1024))
     x_wav = standardization(x_wav) 
     return x_wav
 

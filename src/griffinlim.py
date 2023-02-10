@@ -12,7 +12,9 @@ def griffin_lim(spectrogram: torch.Tensor,
     
     X = spectrogram * torch.exp(1j * X_init_phase)
     for _ in range(n_iter):
-        X_hat = torch.istft(X, n_fft=n_fft)    # G+ cn
+        X_hat = torch.istft(X, 
+                            n_fft = n_fft,
+                            window = torch.hann_window(1024))    # G+ cn
         X_hat = torch.stft(X_hat, 
                            n_fft=n_fft, 
                            return_complex = True,
@@ -20,7 +22,9 @@ def griffin_lim(spectrogram: torch.Tensor,
         X_phase = torch.angle(X_hat) 
         X = spectrogram * torch.exp(1j * X_phase)   # Pc1(Pc2(cn-1))  
     
-    x = torch.istft(X, n_fft=n_fft)
+    x = torch.istft(X, 
+                    n_fft = n_fft,
+                    window = torch.hann_window(1024))
     
     return x
 
@@ -35,7 +39,9 @@ def fast_griffin_lim(spectrogram: torch.Tensor,
     
     # Initialize the algorithm
     X = spectrogram * torch.exp(1j * X_init_phase)
-    prev_proj = torch.istft(X, n_fft=n_fft)
+    prev_proj = torch.istft(X, 
+                            n_fft = n_fft,
+                            window = torch.hann_window(1024))
     prev_proj = torch.stft(prev_proj, 
                            n_fft=n_fft, 
                            window = torch.hann_window(n_fft),
@@ -45,7 +51,9 @@ def fast_griffin_lim(spectrogram: torch.Tensor,
     prev_proj = spectrogram * torch.exp(1j * prev_proj_phase) 
     
     for _ in range(n_iter+1):
-        curr_proj = torch.istft(X, n_fft=n_fft)    # G+ cn            
+        curr_proj = torch.istft(X, 
+                                n_fft = n_fft,
+                                window = torch.hann_window(1024))    # G+ cn            
         curr_proj = torch.stft(curr_proj, 
                                n_fft=n_fft, 
                                window = torch.hann_window(n_fft),
@@ -57,7 +65,9 @@ def fast_griffin_lim(spectrogram: torch.Tensor,
         X = curr_proj + alpha * (curr_proj - prev_proj)
         prev_proj = curr_proj
 
-    x = torch.istft(X, n_fft=n_fft)
+    x = torch.istft(X, 
+                    n_fft = n_fft,
+                    window = torch.hann_window(1024))
 
     return x
 
