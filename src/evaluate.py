@@ -135,7 +135,7 @@ class Tester:
 def main(args):
  
     tester = Tester(args)    
-    test_dl = build_dataloader(tester.hprms, config.DATA_DIR, "test")
+    test_dl = build_dataloader(tester.hprms, config.DATA_DIR, args.task, "test")
     _ = tester.test_model(test_dl) 
 
 

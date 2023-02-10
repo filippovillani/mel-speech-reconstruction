@@ -8,11 +8,11 @@ from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
-from torchmetrics import ScaleInvariantSignalDistortionRatio
 from tqdm import tqdm
 
 import config
 from dataset import build_dataloader
+from metrics import SI_SDR
 from losses import ComplexMSELoss, FrobeniusLoss, l2_regularization
 from networks.build_model import build_model
 from utils.audioutils import (compute_wav, denormalize_db_spectr, initialize_random_phase,
@@ -44,7 +44,7 @@ class Trainer:
         
         self.pesq = PerceptualEvaluationSpeechQuality(fs=self.hprms.sr, mode="wb")
         self.stoi = ShortTimeObjectiveIntelligibility(fs=self.hprms.sr)
-        self.sisdr = ScaleInvariantSignalDistortionRatio().to(self.hprms.device)
+        self.sisdr = SI_SDR().to(self.hprms.device)
         if args.resume_training:
             # Load model's weights, optimizer and scheduler from checkpoint
             self.training_state = load_json(self.training_state_path)     
@@ -97,8 +97,8 @@ class Trainer:
 
                     x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze(1)
                     
-                    loss = self.loss_fn(x_stftspec_db_norm, x_stftspec_hat_db_norm)
-                    
+                    loss = self.loss_fn(x_stftspec_db_norm, x_stftspec_hat_db_norm) # maybe invert order
+                    # Regularization
                     if self.hprms.weights_decay is not None:
                         l2_reg = l2_regularization(self.model)
                         loss += self.hprms.weights_decay * l2_reg
@@ -182,8 +182,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                if n == 100:
-                    break
+                # if n == 100:
+                #     break
 
             # Evaluate on the validation set
             val_scores = self.eval_model(model = self.model, 
@@ -229,13 +229,9 @@ class Trainer:
     
     def _preprocess_melspec2spec_batch(self, batch):
         
-        x_stft = batch["stft"].to(self.hprms.device)
-        x_stftspec = torch.abs(x_stft).float()
-        x_stftspec_db_norm = normalize_db_spectr(to_db(x_stftspec)).float()
+        x_stftspec_db_norm = batch["spectrogram"].float().to(self.hprms.device)
         x_melspec_db_norm = torch.matmul(self.melfb, x_stftspec_db_norm).unsqueeze(1)
         
-        # x_melspec_db_norm = normalize_db_spectr(to_db(x_melspec, power_spectr=True))
-
         return x_stftspec_db_norm, x_melspec_db_norm
     
     
@@ -343,8 +339,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in test_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                if n == 50:
-                    break  
+                # if n == 50:
+                #     break  
                  
         return test_scores
 
@@ -454,8 +450,8 @@ def main(args):
     
     trainer = Trainer(args)
     
-    train_dl = build_dataloader(trainer.hprms, config.DATA_DIR, "train")
-    val_dl = build_dataloader(trainer.hprms, config.DATA_DIR, "validation")
+    train_dl = build_dataloader(trainer.hprms, config.DATA_DIR, args.task, "train")
+    val_dl = build_dataloader(trainer.hprms, config.DATA_DIR, args.task, "validation")
     
     _ = trainer.train(train_dl, val_dl)
 

@@ -5,7 +5,7 @@ import librosa
 from utils.audioutils import min_max_normalization
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, drop_rate):
+    def __init__(self, in_channels, out_channels, kernel_size):
         
         super(ConvBlock, self).__init__()
 
@@ -14,14 +14,12 @@ class ConvBlock(nn.Module):
                               kernel_size = kernel_size,
                               padding = 'same')
         self.bn = nn.BatchNorm2d(out_channels)
-        self.drop = nn.Dropout(drop_rate)
         self.relu = nn.ReLU()
         
     def forward(self, x):
         
         x = self.conv(x)
         x = self.bn(x)
-        # x = self.drop(x)
         x = self.relu(x)
         
         return x
@@ -39,7 +37,6 @@ class PInvBlock(nn.Module):
         """
         Args:
             melspec (torch.Tensor): mel spectrogram in dB normalized in [0, 1]
-
         Returns:
             _type_: _description_
         """

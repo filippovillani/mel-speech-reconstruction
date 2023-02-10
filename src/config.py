@@ -13,30 +13,30 @@ def create_hparams():   # training hparams
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     training_hparams = Namespace(batch_size = 1,
-                                 lr = 1e-4,
+                                 lr = 1e-3,
                                  weights_decay = None,
                                  epochs = 70,
                                  patience = 10,
                                  lr_patience = 3,
-                                 loss = "l1", # can be one of ["l1", "complexmse", "mse", "frobenius"]
+                                 loss = "mse", # can be one of ["l1", "complexmse", "mse", "frobenius"]
                                  max_snr_db = 12,
                                  min_snr_db = -6) 
                                  
     model_hparams = Namespace(first_unet_channel_units = 32,
-                                  unet_kernel_size = (3,3),
-                                  drop_rate = 0.0,
-                                  conv_channels = [32, 64, 128],
-                                  conv_kernel_size = (3,3),
-                                  degli_hidden_channels = 32,
-                                  degli_kernel_size = (5,3),
-                                  degli_data_lr = 1e-6)
+                                unet_kernel_size = (3,3),
+                                drop_rate = 0.0,
+                                conv_channels = [32, 64],
+                                conv_kernel_size = (3,3),
+                                degli_hidden_channels = 32,
+                                degli_kernel_size = (5,3),
+                                degli_data_lr = 1e-6)
     
     audio_hparams = Namespace(sr = 16000,
                               n_mels = 80,
                               n_fft = 1024,
                               n_channels = 1,
                               hop_len = 256,
-                              audio_ms = 1040,
+                              audio_ms = 1020,
                               audio_thresh = 0.1)
     # Other useful audio parameters
     audio_len_ = int(audio_hparams.sr * audio_hparams.audio_ms // 1000)

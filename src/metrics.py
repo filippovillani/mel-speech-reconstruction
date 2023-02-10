@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class SI_SDR(nn.Module):
     def __init__(self):
         super(SI_SDR, self).__init__()
@@ -9,16 +10,14 @@ class SI_SDR(nn.Module):
         return self._si_sdr_metric(s_target, s_hat)
     
     def _si_sdr_metric(self,
-                       s_target: torch.Tensor,
-                       s_hat: torch.Tensor)->torch.Tensor: 
+                       s_hat: torch.Tensor,
+                       s_target: torch.Tensor)->torch.Tensor: 
         """
         Compute the Scale-Invariant Signal to Noise Ratio on the STFT magnitude,
         based on '2013 - A fast griffin-lim algorithm' and on '2018 - SDR - half-baked or well done?'
-
         Args:
             s_target (torch.Tensor): spectrogram of target signal
             s_hat (torch.Tensor): spectrogram of reconstructed signal
-
         Returns:
             sdr (float): SI-sdr
         """
