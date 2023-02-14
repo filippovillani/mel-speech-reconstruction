@@ -15,7 +15,7 @@ from dataset import build_dataloader
 from metrics import SI_SDR
 from losses import ComplexMSELoss, FrobeniusLoss, l2_regularization
 from networks.build_model import build_model
-from utils.audioutils import (compute_wav, denormalize_db_spectr,
+from utils.audioutils import (compute_wav, denormalize_db_spectr, normalize_db_spectr, to_db,
                               initialize_random_phase, to_linear, create_noise)
 from utils.plots import plot_train_hist, plot_train_hist_degli
 from utils.utils import save_to_json, load_json, save_config, load_config
@@ -97,7 +97,7 @@ class Trainer:
 
                     x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze(1)
                     
-                    loss = self.loss_fn(x_stftspec_db_norm, x_stftspec_hat_db_norm) # maybe invert order
+                    loss = self.loss_fn(x_stftspec_hat_db_norm, x_stftspec_db_norm)
                     # Regularization
                     if self.hprms.weights_decay is not None:
                         l2_reg = l2_regularization(self.model)
@@ -105,6 +105,7 @@ class Trainer:
                         
                     if (not torch.isnan(loss) and not torch.isinf(loss)): 
                         train_scores["loss"] += ((1./(n+1))*(loss-train_scores["loss"]))
+                    
                     loss.backward()  
                     self.optimizer.step()    
                     
@@ -145,12 +146,7 @@ class Trainer:
                     
                 elif self.task == "melspec2wav":
 
-                    _, x_melspec_db_norm = self._preprocess_melspec2spec_batch(batch)
-                    with torch.no_grad():
-                        x_stftspec_hat_db_norm = self.melspec2spec_model(x_melspec_db_norm).squeeze(1)
-                        x_stftspec_hat = to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm))
-                        x_stft, x_stft_noise = self._preprocess_melspec2wav_batch(batch, x_stftspec_hat)
-                    
+                    x_stft, x_stftspec_hat, x_stft_noise = self._preprocess_melspec2wav_batch(batch)
                     x_stft_hat = self.model(x_stft_noise, x_stftspec_hat)
                     
                     # x_stft is actually x_stft_hat with x_stft phase
@@ -183,8 +179,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                # if n == 100:
-                #     break
+                if n == 10:
+                    break
 
             # Evaluate on the validation set
             val_scores = self.eval_model(model = self.model, 
@@ -211,21 +207,6 @@ class Trainer:
         print("____________________________________________")
 
         return self.training_state
-    
-    
-    def _preprocess_melspec2wav_batch(self, batch, x_stftspec_hat):
-        
-        x_stft = batch["stft"].to(self.hprms.device)
-        x_stftphase = torch.angle(x_stft)
-        x_stft_hat = x_stftspec_hat * torch.exp(1j * x_stftphase)
-        
-        noise = create_noise(x_stftspec_hat, 
-                             max_snr_db = self.hprms.max_snr_db,
-                             min_snr_db = self.hprms.min_snr_db)
-        
-        x_stft_noise = x_stft_hat + noise
-        
-        return x_stft_hat, x_stft_noise
     
     
     def _preprocess_melspec2spec_batch(self, batch):
@@ -259,6 +240,32 @@ class Trainer:
         return x_stft, x_stft_noise
     
     
+    def _preprocess_melspec2wav_batch(self, batch):
+        
+        x_stft = batch["stft"].to(self.hprms.device)
+        
+        # melspec2spec
+        x_stftspec_db_norm = normalize_db_spectr(to_db(torch.abs(x_stft).float()))
+        x_melspec_db_norm = torch.matmul(self.melfb, x_stftspec_db_norm).unsqueeze(1)
+        
+        with torch.no_grad():
+            # make prediction with pretrained and frozen melspec2spec_model
+            x_stftspec_hat_db_norm = self.melspec2spec_model(x_melspec_db_norm).squeeze(1)
+            x_stftspec_hat = to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm))
+                        
+        # Needed for spec2wav fine-tuning
+        x_stftphase = torch.angle(x_stft)
+        x_stft_hat = x_stftspec_hat * torch.exp(1j * x_stftphase)
+        
+        noise = create_noise(x_stft_hat, 
+                             max_snr_db = self.hprms.max_snr_db,
+                             min_snr_db = self.hprms.min_snr_db)
+        
+        x_stft_noise = x_stft_hat + noise
+        
+        return x_stft, x_stftspec_hat, x_stft_noise
+    
+    
     def eval_model(self,
                    model: torch.nn.Module, 
                    test_dl: DataLoader,
@@ -278,7 +285,7 @@ class Trainer:
                     x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_melspec2spec_batch(batch)
                     x_stftspec_hat_db_norm = model(x_melspec_db_norm).squeeze(1)
                     
-                    loss = self.loss_fn(x_stftspec_db_norm, x_stftspec_hat_db_norm)
+                    loss = self.loss_fn(x_stftspec_hat_db_norm, x_stftspec_db_norm)
                     if self.hprms.weights_decay is not None:
                         l2_reg = l2_regularization(self.model)
                         loss += self.hprms.weights_decay * l2_reg
@@ -313,13 +320,15 @@ class Trainer:
                     test_scores["stoi"] += ((1./(n+1))*(stoi_metric-test_scores["stoi"]))
 
                 elif task == "melspec2wav":
-
-                    _, x_melspec_db_norm = self._preprocess_melspec2spec_batch(batch) 
+                    
+                    x_stft = batch["stft"]
+                    x_stftspec_db_norm = normalize_db_spectr(to_db(torch.abs(x_stft).float().to(self.hprms.device)))
+                    x_melspec_db_norm = torch.matmul(self.melfb, x_stftspec_db_norm).unsqueeze(1)
+                    
                     with torch.no_grad():
                         x_stftspec_hat_db_norm = self.melspec2spec_model(x_melspec_db_norm).squeeze(1)
                         x_stftspec_hat = to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm))
-                        x_stft, _ = self._preprocess_melspec2wav_batch(batch, x_stftspec_hat) 
-                        x_stft_noise = initialize_random_phase(torch.abs(x_stft))
+                        x_stft_noise = initialize_random_phase(x_stftspec_hat)
                         
                         x_stft_hat = model(x_stft_noise, x_stftspec_hat)
                     
@@ -340,8 +349,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in test_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                # if n == 50:
-                #     break  
+                if n == 50:
+                    break  
                  
         return test_scores
 
@@ -405,8 +414,8 @@ class Trainer:
             
     def _update_training_state(self, train_scores, val_scores):
 
-        train_scores = {k: round(float(v), 4) for k, v in train_scores.items() if v != 0.}
-        val_scores = {k: round(float(v), 4) for k, v in val_scores.items() if v != 0.}
+        train_scores = {k: float(v) for k, v in train_scores.items() if v != 0.}
+        val_scores = {k: float(v)  for k, v in val_scores.items() if v != 0.}
         
         for key, value in train_scores.items():
             if key not in self.training_state["train_hist"]:
@@ -461,29 +470,29 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name',
                         type=str,
-                        choices=["unet", "pinvconv", "pinvunet", "degli"],
-                        default='pinvconv')
+                        choices=["unet", "pinvconv", "pinvconvres", "pinvunet", "degli"],
+                        default='degli')
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='newpinvconv00')
+                        default='test')
     
     parser.add_argument('--task',
                         type=str,
                         choices=["melspec2spec", "spec2wav", "melspec2wav"],
-                        default='melspec2spec')
+                        default='melspec2wav')
     
     parser.add_argument('--melspec2spec_data_name',
                         type=str,
-                        default='pinvconv02')
+                        default='pinvconvres04')
     
     parser.add_argument('--melspec2spec_model_name',
                         type=str,
-                        choices=["pinvconv", "pinvunet"],
-                        default='pinvconv')
+                        choices=["pinvconv", "pinvunet", "pinvconvres"],
+                        default='pinvconvres')
     
     parser.add_argument('--resume_training',
-                        action='store_false',
+                        action='store_true',
                         help="use this flag if you want to restart training from a checkpoint")
 
     parser.add_argument('--data_degli_name',

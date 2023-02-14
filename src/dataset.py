@@ -14,10 +14,10 @@ def build_dataloader(hparams: Namespace,
     
     shuffle = True if ds_type == "train" else False
     
-    if task in ["melspec2spec", "melspec2wav"]:
+    if task in ["melspec2spec"]:
         ds = SpectrogramDataset(data_dir, 
                                 ds_type = ds_type)
-    elif task == ["spec2wav"]:
+    elif task in ["spec2wav", "melspec2wav"]:
         ds = STFTDataset(data_dir, 
                          ds_type = ds_type)
     
