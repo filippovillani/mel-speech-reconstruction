@@ -2,7 +2,7 @@
     "batch_size": 1,
     "lr": 0.0001,
     "weights_decay": null,
-    "epochs": 15,
+    "epochs": 70,
     "patience": 10,
     "lr_patience": 3,
     "loss": "l1",
