@@ -26,7 +26,7 @@ class Trainer:
         self.model_name = args.model_name
         self.task = args.task
         self.data_degli_name = args.data_degli_name
-        self._set_paths(args.task, args.experiment_name, args.data_degli_name, args.melspec2spec_data_name)
+        self._set_paths(args.task, args.experiment_name, args.data_degli_name, args.melspec2spec_exp_name, args.spec2wav_exp_name)
         self._set_hparams(args.resume_training)
         self._set_loss(self.hprms.loss)
         
@@ -45,27 +45,43 @@ class Trainer:
         self.pesq = PerceptualEvaluationSpeechQuality(fs=self.hprms.sr, mode="wb")
         self.stoi = ShortTimeObjectiveIntelligibility(fs=self.hprms.sr)
         self.sisdr = SI_SDR().to(self.hprms.device)
-        if args.resume_training:
-            # Load model's weights, optimizer and scheduler from checkpoint
-            self.training_state = load_json(self.training_state_path)     
-            self.model = build_model(self.hprms, args.model_name, self.experiment_weights_dir, best_weights=False)
-            self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)        
-            self.optimizer.load_state_dict(torch.load(self.ckpt_opt_path)) 
-            self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=self.hprms.lr_patience)
-            self.lr_sched.load_state_dict(torch.load(self.ckpt_sched_path))
-        else:        
-            # Initialize model, optimizer and lr scheduler
-            self.model = build_model(self.hprms, args.model_name)
-            self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)
-            self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=self.hprms.lr_patience)
-               
+        
+        # TODO: refactor this 
+        if self.task == "melspec2wav":
+            self.melspec2spec_model = build_model(self.hprms, args.melspec2spec_model_name, self.melspec2spec_weights_dir, best_weights=True)
+            self.melspec2spec_model.eval()
+            if args.resume_training:
+                self.training_state = load_json(self.training_state_path)    
+                self.model = build_model(self.hprms, args.model_name, self.experiment_weights_dir, best_weights=False)
+                self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)
+                self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=self.hprms.lr_patience)
+                self.optimizer.load_state_dict(torch.load(self.ckpt_opt_path))
+                self.lr_sched.load_state_dict(torch.load(self.ckpt_sched_path))
+            else:
+                self.model = build_model(self.hprms, args.model_name, self.spec2wav_weights_dir, best_weights=True) 
+                self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)
+                self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=self.hprms.lr_patience)     
+                
+        else:
+            if args.resume_training:
+                # Load model's weights, optimizer and scheduler from checkpoint
+                self.training_state = load_json(self.training_state_path)     
+                self.model = build_model(self.hprms, args.model_name, self.experiment_weights_dir, best_weights=False)
+                self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)        
+                self.optimizer.load_state_dict(torch.load(self.ckpt_opt_path)) 
+                self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=self.hprms.lr_patience)
+                self.lr_sched.load_state_dict(torch.load(self.ckpt_sched_path))
+            else:        
+                # Initialize model, optimizer and lr scheduler
+                self.model = build_model(self.hprms, args.model_name)
+                self.optimizer = torch.optim.Adam(params = self.model.parameters(), lr=self.hprms.lr)
+                self.lr_sched = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=self.hprms.lr_patience)
+                
         if self.data_degli_name is not None:
             data_degli_hprms = load_config(self.data_degli_config_path)
             self.data_degli = build_model(data_degli_hprms, "degli", self.data_degli_weights_dir)
         
-        if self.task == "melspec2wav":
-            self.melspec2spec_model = build_model(self.hprms, args.melspec2spec_model_name, self.melspec2spec_weights_dir, best_weights=True)
-            self.melspec2spec_model.eval()
+
             
             
     def train(self, train_dl, val_dl):
@@ -179,8 +195,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in train_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                if n == 10:
-                    break
+                # if n == 10:
+                #     break
 
             # Evaluate on the validation set
             val_scores = self.eval_model(model = self.model, 
@@ -349,8 +365,8 @@ class Trainer:
                 scores_to_print = str({k: round(float(v), 4) for k, v in test_scores.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
                 
-                if n == 50:
-                    break  
+                # if n == 10:
+                #     break  
                  
         return test_scores
 
@@ -378,21 +394,21 @@ class Trainer:
                    task, 
                    experiment_name, 
                    data_degli_name = None,
-                   melspec2spec_data_name = None):
+                   melspec2spec_exp_name = None,
+                   spec2wav_exp_name = None):
    
         if task == "melspec2spec":
             results_dir = config.MELSPEC2SPEC_DIR 
         elif task == "spec2wav":
             results_dir = config.SPEC2WAV_DIR 
-            if data_degli_name is not None:
-                self.data_degli_weights_dir = config.WEIGHTS_DIR / data_degli_name
-                self.data_degli_config_path = results_dir / data_degli_name / "config.json"
         elif task == "melspec2wav":
             results_dir = config.MELSPEC2WAV_DIR
-            self.melspec2spec_weights_dir = config.WEIGHTS_DIR / melspec2spec_data_name
-            if data_degli_name is not None:
-                self.data_degli_weights_dir = config.WEIGHTS_DIR / data_degli_name
-                self.data_degli_config_path = results_dir / data_degli_name / "config.json"
+            self.melspec2spec_weights_dir = config.WEIGHTS_DIR / melspec2spec_exp_name
+            self.spec2wav_weights_dir = config.WEIGHTS_DIR / spec2wav_exp_name
+            
+        if data_degli_name is not None:
+            self.data_degli_weights_dir = config.WEIGHTS_DIR / data_degli_name
+            self.data_degli_config_path = results_dir / data_degli_name / "config.json"
             
         self.experiment_dir = results_dir / experiment_name            
         self.experiment_weights_dir = config.WEIGHTS_DIR / experiment_name
@@ -475,24 +491,28 @@ if __name__ == "__main__":
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='test')
+                        default='testeoo')
     
     parser.add_argument('--task',
                         type=str,
                         choices=["melspec2spec", "spec2wav", "melspec2wav"],
                         default='melspec2wav')
     
-    parser.add_argument('--melspec2spec_data_name',
+    parser.add_argument('--spec2wav_exp_name',
                         type=str,
-                        default='pinvconvres04')
+                        default='degli_B1_noiseM6P12')
     
     parser.add_argument('--melspec2spec_model_name',
                         type=str,
                         choices=["pinvconv", "pinvunet", "pinvconvres"],
                         default='pinvconvres')
     
+    parser.add_argument('--melspec2spec_exp_name',
+                        type=str,
+                        default='pinvconvres04')
+    
     parser.add_argument('--resume_training',
-                        action='store_true',
+                        action='store_false',
                         help="use this flag if you want to restart training from a checkpoint")
 
     parser.add_argument('--data_degli_name',
