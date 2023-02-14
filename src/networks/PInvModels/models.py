@@ -49,8 +49,9 @@ class PInvConv(nn.Module):
         self.pinvblock = PInvBlock(hparams)
         self.convblocks = nn.ModuleList([ConvBlock(in_channels[l], 
                                                    out_channels[l], 
-                                                   hparams.conv_kernel_size) for l in range(len(in_channels))])
-        
+                                                   hparams.conv_kernel_size,
+                                                   hparams.drop_rate) for l in range(len(in_channels))])
+        self.convblocks[-1].drop_rate = 0.
 
     def forward(self, melspec):
         """
@@ -85,8 +86,9 @@ class PInvConvRes(nn.Module):
         self.pinvblock = PInvBlock(hparams)
         self.convblocks = nn.ModuleList([ConvBlock(in_channels[l], 
                                                    out_channels[l], 
-                                                   hparams.conv_kernel_size) for l in range(len(in_channels))])
-        
+                                                   hparams.conv_kernel_size,
+                                                   hparams.drop_rate) for l in range(len(in_channels))])
+        self.convblocks[-1].drop_rate = 0.
         self.n_blocks = len(self.convblocks)
         
     def forward(self, melspec):

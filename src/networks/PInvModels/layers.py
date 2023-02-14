@@ -5,22 +5,27 @@ import librosa
 from utils.audioutils import min_max_normalization
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size):
+    def __init__(self, in_channels, out_channels, kernel_size, drop_rate):
         
         super(ConvBlock, self).__init__()
 
+        self.drop_rate = drop_rate
+        
         self.conv = nn.Conv2d(in_channels = in_channels,
                               out_channels = out_channels,
                               kernel_size = kernel_size,
                               padding = 'same')
         self.bn = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU()
+        self.drop = nn.Dropout(drop_rate)
         
     def forward(self, x):
         
         x = self.conv(x)
         x = self.bn(x)
         x = self.relu(x)
+        if self.drop_rate != 0:
+            x = self.drop(x)
         
         return x
     
