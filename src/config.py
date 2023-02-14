@@ -14,23 +14,23 @@ def create_hparams():
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     training_hparams = Namespace(batch_size = 1,
-                                 lr = 1e-3,
+                                 lr = 1e-4,
                                  weights_decay = None,
-                                 epochs = 70,
+                                 epochs = 15,
                                  patience = 10,
                                  lr_patience = 3,
-                                 loss = "mse", # can be one of ["l1", "complexmse", "mse", "frobenius"]
+                                 loss = "l1", # can be one of ["l1", "complexmse", "mse", "frobenius"]
                                  max_snr_db = 12,
                                  min_snr_db = -6) 
                                  
     model_hparams = Namespace(first_unet_channel_units = 32,
-                                unet_kernel_size = (3,3),
-                                drop_rate = 0.0,
-                                conv_channels = [32, 64],
-                                conv_kernel_size = (3,3),
-                                degli_hidden_channels = 32,
-                                degli_kernel_size = (5,3),
-                                degli_data_lr = 1e-6)
+                              unet_kernel_size = (3,3),
+                              drop_rate = 0.0,
+                              conv_channels = [32, 64, 128],
+                              conv_kernel_size = (5,3),
+                              degli_hidden_channels = 32,
+                              degli_kernel_size = (5,3),
+                              degli_data_lr = 1e-6)
     
     audio_hparams = Namespace(sr = 16000,
                               n_mels = 80,

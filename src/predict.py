@@ -17,14 +17,15 @@ from utils.utils import save_to_json, load_config
 
 
     
-def predict(args):
+def predict(args):  
     
     # Paths
     audio_path = config.DATA_DIR / args.audio_path
     melspec2spec_dir = config.MELSPEC2SPEC_DIR / args.melspec2spec_weights_dir
     experiment_dir = config.MELSPEC2WAV_DIR / (args.melspec2spec_model_name + "_" + args.spec2wav_model_name)
     config_path = melspec2spec_dir / "config.json"
-    degli_config_path = config.MELSPEC2WAV_DIR / args.spec2wav_weights_dir / "config.json"
+    if args.spec2wav_weights_dir is not None:
+        degli_config_path = config.SPEC2WAV_DIR / args.spec2wav_weights_dir / "config.json"
     x_wav_hat_path = experiment_dir / 'gla_from_melspec.wav'
     metrics_path = experiment_dir / 'prediction_metrics.json'    
     prediction_img_path = experiment_dir / 'prediction.png'  
@@ -118,9 +119,9 @@ if __name__ == "__main__":
         
     parser = argparse.ArgumentParser()
     parser.add_argument('--melspec2spec_model_name', 
-                        choices = ["unet", "pinvconv", "pinv"],
+                        choices = ["unet", "pinvconv", "pinv", "pinvconvres"],
                         type=str,
-                        default = 'pinvconv')
+                        default = 'pinvconvres')
     
     parser.add_argument('--spec2wav_model_name', 
                         choices = ["degli", "fgla", "gla"],
@@ -129,11 +130,11 @@ if __name__ == "__main__":
     
     parser.add_argument('--melspec2spec_weights_dir',
                         type=str,
-                        default='newpinvconv00')
+                        default='pinvconvres04')
     
     parser.add_argument('--spec2wav_weights_dir',
                         type=str,
-                        default='pinvconv02_degli00')
+                        default='degli_B1_noiseM6P12')
     
     parser.add_argument('--degli_blocks',
                         type=int,

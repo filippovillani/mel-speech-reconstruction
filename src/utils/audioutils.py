@@ -107,12 +107,12 @@ def initialize_random_phase(x_stft_mag, init = "randn"):
 
 def create_noise(signal, max_snr_db = 12, min_snr_db = -6):
 
-    sdr_db = (max_snr_db - min_snr_db) * torch.rand((1)) + min_snr_db
-    sdr = torch.pow(10, sdr_db/10).to(signal.device)
+    snr_db = (max_snr_db - min_snr_db) * torch.rand((1)) + min_snr_db
+    snr = torch.pow(10, snr_db/10).to(signal.device)
 
     signal_power = torch.mean(torch.abs(signal) ** 2)
     
-    noise_power = signal_power / (sdr + 1e-12)
+    noise_power = signal_power / (snr + 1e-12)
     noise = torch.sqrt(noise_power) * torch.randn_like(signal)
     
     return noise

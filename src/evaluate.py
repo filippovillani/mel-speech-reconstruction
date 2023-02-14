@@ -29,7 +29,7 @@ class Tester:
         if self.model_name in ["gla", "fgla"]: # this is for gla and fgla
             self.hprms = config.create_hparams()
             self.gla_iter = args.num_iter
-        elif self.model_name in ["degli", "pinvconv"]: 
+        elif self.model_name in ["degli", "pinvconv", "pinvconvres", "pinvunet"]: 
             self.hprms = load_config(self.config_path)
             self.hprms.batch_size = 1
             self.model = build_model(self.hprms, args.model_name, self.experiment_weights_dir, best_weights=True)
@@ -49,7 +49,7 @@ class Tester:
         
         self.pesq = PerceptualEvaluationSpeechQuality(fs = self.hprms.sr, mode= "wb")
         self.stoi = ShortTimeObjectiveIntelligibility(fs = self.hprms.sr)
-        self.si_sdr = SI_SDR().to(self.hprms.device)
+        self.sisdr = SI_SDR().to(self.hprms.device)
         
     def test_model(self, 
                    test_dl: DataLoader):
@@ -65,7 +65,7 @@ class Tester:
                 if self.task == "melspec2spec":
                     x_stftspec_db_norm, x_melspec_db_norm = self._preprocess_melspec2spec_batch(batch)
                     x_stftspec_hat_db_norm = self.model(x_melspec_db_norm).squeeze(1)
-                    sdr_metric = self.si_sdr(to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)),
+                    sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)),
                                              to_linear(denormalize_db_spectr(x_stftspec_db_norm)))
                     test_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-test_scores["si-sdr"]))  
                     
@@ -144,16 +144,17 @@ if __name__ == "__main__":
     parser.add_argument('--task',
                         type=str,
                         choices=["melspec2spec", "spec2wav"],
-                        default='spec2wav')
+                        default='melspec2spec')
     
     parser.add_argument('--model_name',
-                        choices = ["pinvconv", "pinvunet", "pinv", "fgla", "gla", "degli"],
+                        choices = ["pinvconv", "pinvconvres", "pinvunet", 
+                                   "pinv", "fgla", "gla", "degli"],
                         type=str,
-                        default = 'degli')
+                        default = 'pinvconvres')
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='degli_B1_deglidata_fromnoiseM6P12')
+                        default='pinvconvres01')
     
     parser.add_argument('--degli_blocks',
                         type=int,
