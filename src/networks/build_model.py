@@ -1,6 +1,6 @@
 import torch
 
-from networks.PInvModels.models import PInv, PInvConv, PInvUNet
+from networks.PInvModels.models import PInv, PInvConv, PInvUNet, PInvConvRes
 from networks.UNet.models import UNet
 from networks.DeGLI.models import DeGLI
 
@@ -13,6 +13,8 @@ def build_model(hparams,
         model = UNet(hparams).float().to(hparams.device)
     elif model_name.lower() == "pinvconv":
         model = PInvConv(hparams).float().to(hparams.device)
+    elif model_name.lower() == "pinvconvres":
+        model = PInvConvRes(hparams).float().to(hparams.device)
     elif model_name.lower() == "pinvunet":
         model = PInvUNet(hparams).float().to(hparams.device)
     elif model_name.lower() == "pinv":
