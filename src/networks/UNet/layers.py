@@ -3,17 +3,47 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+class Bottleneck(nn.Module):
+    def __init__(self,
+                 in_channels,
+                 kernel_size,
+                 drop_rate):
+        
+        super(Bottleneck, self).__init__()
+        
+        out_channels = in_channels * 2 
+        self.conv1 = nn.Conv2d(in_channels = in_channels, 
+                                out_channels = out_channels, 
+                                kernel_size = kernel_size, 
+                                padding = 'same')
+        nn.init.kaiming_normal_(self.conv1.weight)
+        self.bn1 = nn.BatchNorm2d(out_channels)        
+        self.relu1 = nn.ReLU() 
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size, padding='same')
+        nn.init.kaiming_normal_(self.conv2.weight)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.relu2 = nn.ReLU() 
+        self.drop = nn.Dropout(drop_rate)
+        
+    def forward(self, x):
+        
+        x = self.conv1(x)
+        x = self.bn1(x)        
+        x = self.relu1(x)        
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.drop(x)
+        return x     
+        
 class ContractingBlock(nn.Module):
     def __init__(self,
                  in_channels,
                  kernel_size,
                  drop_rate,
-                 out_channels = None,
-                 last_block = False):
+                 out_channels = None):
 
         super(ContractingBlock, self).__init__()
         
-        self.last_block = last_block
         if out_channels is None and in_channels != 1:
             out_channels = in_channels * 2
         elif in_channels == 1 and out_channels is None:
@@ -54,12 +84,9 @@ class ContractingBlock(nn.Module):
         x = self.convC2(x)
         x = self.bnC2(x)
         x_cat = self.reluC2(x)        
-        if self.last_block:
-            out = x_cat
-            x_cat = None
-        else:
-            out = self.poolC(x_cat)
-        return out, x_cat
+        x = self.poolC(x_cat)
+        x = self.dropC(x)
+        return x, x_cat
     
 
 class ExpandingBlock(nn.Module):
