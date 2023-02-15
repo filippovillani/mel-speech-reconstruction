@@ -78,9 +78,10 @@ class PInvConvRes(nn.Module):
         super(PInvConvRes, self).__init__()
         self.device = hparams.device
 
-        out_channels = hparams.conv_channels + hparams.conv_channels[-1::-1] + [1]
+        # TODO: try to remove the bottleneck
+        out_channels = hparams.conv_channels + hparams.conv_channels[-2::-1] + [1]
         in_channels = out_channels[::-1]
-        in_channels = in_channels[:((len(out_channels)//2 + 1))] + [x*2 for x in out_channels[(len(out_channels)//2):-1]]
+        in_channels = in_channels[:((len(out_channels)//2))] + [x*2 for x in out_channels[(len(out_channels)//2-1):-1]]
         
         
         self.pinvblock = PInvBlock(hparams)
@@ -107,10 +108,10 @@ class PInvConvRes(nn.Module):
             x_cat.append(x)
         x_cat = x_cat[::-1]
         
-        x = self.convblocks[self.n_blocks//2](x)
+        # x = self.convblocks[self.n_blocks//2](x)
         # Decoder
-        for l in range(self.n_blocks//2+1, self.n_blocks):
-            x = torch.cat([x, x_cat[l-(self.n_blocks//2+1)]], axis=1)
+        for l in range(self.n_blocks//2, self.n_blocks):
+            x = torch.cat([x, x_cat[l-(self.n_blocks//2)]], axis=1)
             x = self.convblocks[l](x)
 
         x_max = torch.as_tensor([torch.max(x[q]) for q in range(x.shape[0])])
