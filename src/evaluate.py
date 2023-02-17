@@ -29,7 +29,8 @@ class Tester:
         if self.model_name in ["gla", "fgla"]: # this is for gla and fgla
             self.hprms = config.create_hparams()
             self.gla_iter = args.num_iter
-        elif self.model_name in ["degli", "pinvconv", "pinvconvres", "pinvunet"]: 
+        elif self.model_name in ["degli", "pinvconv", "pinvconvskip", "pinvunet", 
+                                 "pinvconvskipnobottleneck", "pinvconvres"]: 
             self.hprms = load_config(self.config_path)
             self.hprms.batch_size = 1
             self.model = build_model(self.hprms, args.model_name, self.experiment_weights_dir, best_weights=True)
@@ -40,8 +41,8 @@ class Tester:
             self.model = build_model(self.hprms, args.model_name)
             self.model.eval()
         else:
-            raise ValueError(f'model_name must be one of ["pinvconv", "degli", "gla", "fgla"], \
-                                    received: {args.model_name}')
+            raise ValueError(f'model_name must be one of ["pinvconv", "pinvconvskip", "pinvunet", \
+                "pinvconvskipnobottleneck", "pinvconvres", "degli", "gla", "fgla"], received: {args.model_name}')
                     
         self.melfb = torch.as_tensor(librosa.filters.mel(sr = self.hprms.sr, 
                                                          n_fft = self.hprms.n_fft, 
@@ -147,14 +148,15 @@ if __name__ == "__main__":
                         default='melspec2spec')
     
     parser.add_argument('--model_name',
-                        choices = ["pinvconv", "pinvconvres", "pinvunet", 
+                        choices = ["pinvconv", "pinvconvskip", "pinvunet", "pinvconvskip", 
+                                   "pinvconvskipnobottleneck", "pinvconvres",
                                    "pinv", "fgla", "gla", "degli"],
                         type=str,
-                        default = 'pinvconvres')
+                        default = 'pinvconvskip')
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='pinvconvres01')
+                        default='pinvconvres04')
     
     parser.add_argument('--degli_blocks',
                         type=int,

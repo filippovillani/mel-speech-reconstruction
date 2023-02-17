@@ -6,7 +6,6 @@ from torchmetrics.audio.pesq import PerceptualEvaluationSpeechQuality
 from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 
 import config
-from metrics import SI_SDR
 from griffinlim import fast_griffin_lim, griffin_lim
 from networks.build_model import build_model
 from utils.audioutils import (denormalize_db_spectr, normalize_db_spectr, set_mean_std,
@@ -25,7 +24,7 @@ def predict(args):
     experiment_dir = config.MELSPEC2WAV_DIR / (args.melspec2spec_model_name + "_" + args.spec2wav_model_name)
     config_path = melspec2spec_dir / "config.json"
     if args.spec2wav_weights_dir is not None:
-        degli_config_path = config.SPEC2WAV_DIR / args.spec2wav_weights_dir / "config.json"
+        degli_config_path = config.MELSPEC2WAV_DIR / args.spec2wav_weights_dir / "config.json"
     x_wav_hat_path = experiment_dir / 'gla_from_melspec.wav'
     metrics_path = experiment_dir / 'prediction_metrics.json'    
     prediction_img_path = experiment_dir / 'prediction.png'  
@@ -53,7 +52,6 @@ def predict(args):
     # Metrics
     pesq = PerceptualEvaluationSpeechQuality(fs=hparams.sr, mode="wb")
     stoi = ShortTimeObjectiveIntelligibility(fs=hparams.sr)
-    sisdr = SI_SDR()
     
     x_wav = open_audio(audio_path, hparams.sr, hparams.audio_len).to(hparams.device)
     x_stftspec = torch.abs(torch.stft(x_wav, 
@@ -109,8 +107,7 @@ def predict(args):
                             save_path = prediction_img_path)
     
 
-    metrics = {"si-sdr": float(sisdr(x_stftspec_hat, x_stftspec)),
-               "stoi": float(stoi(x_wav_hat, x_wav)),
+    metrics = {"stoi": float(stoi(x_wav_hat, x_wav)),
                "pesq": float(pesq(x_wav_hat, x_wav))}
     save_to_json(metrics, metrics_path)
   
@@ -119,22 +116,24 @@ if __name__ == "__main__":
         
     parser = argparse.ArgumentParser()
     parser.add_argument('--melspec2spec_model_name', 
-                        choices = ["unet", "pinvconv", "pinv", "pinvconvres"],
+                        choices = ["unet", "pinvconv", "pinvconvskip", 
+                                 "pinvconvskipnobottleneck", "pinvconvres", "pinvunet", 
+                                 "degli"],
                         type=str,
-                        default = 'pinvconvres')
-    
-    parser.add_argument('--spec2wav_model_name', 
-                        choices = ["degli", "fgla", "gla"],
-                        type=str,
-                        default = 'degli')
+                        default = 'pinvconvskip')
     
     parser.add_argument('--melspec2spec_weights_dir',
                         type=str,
                         default='pinvconvres04')
     
+    parser.add_argument('--spec2wav_model_name', 
+                        choices = ["degli", "fgla", "gla"],
+                        type=str,
+                        default = 'fgla')
+    
     parser.add_argument('--spec2wav_weights_dir',
                         type=str,
-                        default='degli_B1_noiseM6P12')
+                        default='pinvconvskip04_degliM6P12')
     
     parser.add_argument('--degli_blocks',
                         type=int,

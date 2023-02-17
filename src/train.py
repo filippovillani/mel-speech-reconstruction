@@ -166,6 +166,7 @@ class Trainer:
                     x_stft_hat = self.model(x_stft_noise, x_stftspec_hat)
                     
                     # x_stft is actually x_stft_hat with x_stft phase
+                    # TODO x_stft to x_stftspec_hat * torch.exp(1j * torch.angle(x_stft))
                     loss = self.loss_fn(x_stft_hat, x_stft)
                     if self.hprms.weights_decay is not None:
                         l2_reg = l2_regularization(self.model)
@@ -486,17 +487,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name',
                         type=str,
-                        choices=["unet", "pinvconv", "pinvconvres", "pinvunet", "degli"],
-                        default='degli')
+                        choices=["unet", "pinvconv", "pinvconvskip", 
+                                 "pinvconvskipnobottleneck", "pinvconvres", "pinvunet", 
+                                 "degli"],
+                        default='pinvconvres')
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='testeoo')
+                        default='testeo')
     
     parser.add_argument('--task',
                         type=str,
                         choices=["melspec2spec", "spec2wav", "melspec2wav"],
-                        default='melspec2wav')
+                        default='melspec2spec')
     
     parser.add_argument('--spec2wav_exp_name',
                         type=str,
@@ -504,15 +507,15 @@ if __name__ == "__main__":
     
     parser.add_argument('--melspec2spec_model_name',
                         type=str,
-                        choices=["pinvconv", "pinvunet", "pinvconvres"],
-                        default='pinvconvres')
+                        choices=["pinvconv", "pinvunet", "pinvconvskip"],
+                        default='pinvconvskip')
     
     parser.add_argument('--melspec2spec_exp_name',
                         type=str,
-                        default='pinvconvres04')
+                        default='pinvconvskip04')
     
     parser.add_argument('--resume_training',
-                        action='store_false',
+                        action='store_true',
                         help="use this flag if you want to restart training from a checkpoint")
 
     parser.add_argument('--data_degli_name',

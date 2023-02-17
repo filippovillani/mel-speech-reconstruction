@@ -15,6 +15,7 @@ class ConvBlock(nn.Module):
                               out_channels = out_channels,
                               kernel_size = kernel_size,
                               padding = 'same')
+        # nn.init.kaiming_normal_(self.conv.weight)
         self.bn = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU()
         self.drop = nn.Dropout(drop_rate)
