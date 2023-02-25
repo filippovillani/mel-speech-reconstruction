@@ -186,12 +186,12 @@ if __name__ == "__main__":
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='pinvconvres04')
+                        default='degli_def01')
     
     parser.add_argument('--task',
                         type=str,
                         choices=["melspec2spec", "spec2wav", "melspec2wav"],
-                        default='melspec2spec')
+                        default='spec2wav')
     
     parser.add_argument('--spec2wav_model_name',
                         choices = ["fgla", "gla", "degli"],
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     
     parser.add_argument('--spec2wav_weights_path',
                         type=str,
-                        default = 'degli_B1_noiseM6P12')
+                        default = 'degli_def01')
 
     parser.add_argument('--melspec2spec_model_name',
                         choices = ["pinvconv", "pinvconvskip", "pinvunet", "pinvconvskip", 

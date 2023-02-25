@@ -12,9 +12,9 @@ def load_json(path):
 
 def save_to_json(data, paths):
     
-    if not isinstance(data, list):
+    if not isinstance(data, (list, tuple)):
         data = [data]
-    if not isinstance(paths, list):
+    if not isinstance(paths, (list, tuple)):
         paths = [paths]
     for dat, path in zip(data, paths):
         with open(path, "w") as fp:

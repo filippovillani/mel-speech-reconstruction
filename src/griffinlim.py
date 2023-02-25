@@ -30,9 +30,9 @@ def griffin_lim(spectrogram: torch.Tensor,
 
 
 def fast_griffin_lim(spectrogram: torch.Tensor,
+                     n_fft: int = 1024,
                      n_iter: int = 500,
                      alpha: float = 0.99, 
-                     n_fft: int = 1024,
                      init: str = "zeros"):
 
     X_init_phase = initialize_phase(spectrogram, init)
@@ -53,7 +53,7 @@ def fast_griffin_lim(spectrogram: torch.Tensor,
     for _ in range(n_iter+1):
         curr_proj = torch.istft(X, 
                                 n_fft = n_fft,
-                                window = torch.hann_window(1024).to(X.device))    # G+ cn            
+                                window = torch.hann_window(n_fft).to(X.device))    # G+ cn            
         curr_proj = torch.stft(curr_proj, 
                                n_fft=n_fft, 
                                window = torch.hann_window(n_fft).to(curr_proj.device),
@@ -70,6 +70,7 @@ def fast_griffin_lim(spectrogram: torch.Tensor,
                     window = torch.hann_window(1024).to(X.device))
 
     return x
+
 
 def initialize_phase(spectrogram, init = "zeros"):
     

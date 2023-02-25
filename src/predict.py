@@ -21,7 +21,7 @@ def predict(args):
     # Paths
     audio_path = config.DATA_DIR / args.audio_path
     melspec2spec_dir = config.MELSPEC2SPEC_DIR / args.melspec2spec_weights_dir
-    experiment_dir = config.MELSPEC2WAV_DIR / (args.melspec2spec_model_name + "_" + args.spec2wav_model_name)
+    experiment_dir = config.MELSPEC2WAV_DIR / args.spec2wav_weights_dir
     config_path = melspec2spec_dir / "config.json"
     if args.spec2wav_weights_dir is not None:
         degli_config_path = config.MELSPEC2WAV_DIR / args.spec2wav_weights_dir / "config.json"
@@ -53,7 +53,7 @@ def predict(args):
     pesq = PerceptualEvaluationSpeechQuality(fs=hparams.sr, mode="wb")
     stoi = ShortTimeObjectiveIntelligibility(fs=hparams.sr)
     
-    x_wav = open_audio(audio_path, hparams.sr, hparams.audio_len).to(hparams.device)
+    x_wav = open_audio(audio_path, hparams.sr).to(hparams.device)
     x_stftspec = torch.abs(torch.stft(x_wav, 
                                       n_fft=hparams.n_fft,
                                       hop_length=hparams.hop_len,
@@ -133,11 +133,11 @@ if __name__ == "__main__":
     
     parser.add_argument('--spec2wav_weights_dir',
                         type=str,
-                        default='pinvconvskip04_degliM6P12')
+                        default='convpinvres_degli')
     
     parser.add_argument('--degli_blocks',
                         type=int,
-                        default=80)
+                        default=100)
     
     parser.add_argument('--audio_path',
                         type=str,

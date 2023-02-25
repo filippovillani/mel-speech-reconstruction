@@ -81,8 +81,8 @@ class DeGLITester:
             x_stft_noisy = self.degliblock(x_stft_noisy, x_stft_mag)
             x_wav_hat = compute_wav(self.degliblock.magnitude_projection(x_stft_noisy, x_stft_mag),
                                     n_fft = self.hprms.n_fft).squeeze()
-            metrics["stoi_hist"].append(self.stoi(x_wav, x_wav_hat))
-            metrics["pesq_hist"].append(self.pesq(x_wav, x_wav_hat))
+            metrics["stoi_hist"].append(self.stoi(x_wav_hat, x_wav))
+            metrics["pesq_hist"].append(self.pesq(x_wav_hat, x_wav))
 
         return metrics
     

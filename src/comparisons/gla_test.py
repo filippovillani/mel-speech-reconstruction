@@ -90,9 +90,9 @@ class GLATester:
                                     window = self.window,
                                     n_fft=n_fft).squeeze()    # G+ cn
             
-            if n % 10 == 0:
-                metrics["pesq_hist"].append(self.pesq(x_wav, min_max_normalization(curr_proj)).item())
-                metrics["stoi_hist"].append(self.stoi(x_wav, min_max_normalization(curr_proj)).item())
+            if n % 10 == 0: # TODO: try to remove min_max_norm
+                metrics["pesq_hist"].append(self.pesq(curr_proj, x_wav).item())
+                metrics["stoi_hist"].append(self.stoi(curr_proj, x_wav).item())
 
             curr_proj = torch.stft(curr_proj, 
                                    n_fft=n_fft, 
@@ -140,7 +140,7 @@ class GLATester:
         prev_proj_phase = torch.angle(prev_proj)
         prev_proj = spectrogram * torch.exp(1j * prev_proj_phase)
 
-        for _ in range(self.n_iter):
+        for n in range(self.n_iter):
             curr_proj = torch.istft(x_stft_hat, 
                                     window = self.window,
                                     n_fft=n_fft).squeeze()    # G+ cn

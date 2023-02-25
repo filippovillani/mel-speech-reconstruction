@@ -165,8 +165,7 @@ class Trainer:
                     x_stft, x_stftspec_hat, x_stft_noise = self._preprocess_melspec2wav_batch(batch)
                     x_stft_hat = self.model(x_stft_noise, x_stftspec_hat)
                     
-                    # x_stft is actually x_stft_hat with x_stft phase
-                    # TODO x_stft to x_stftspec_hat * torch.exp(1j * torch.angle(x_stft))
+                    # x_stft is actually x_stft_hat from melspec2spec model with x_stft phase
                     loss = self.loss_fn(x_stft_hat, x_stft)
                     if self.hprms.weights_decay is not None:
                         l2_reg = l2_regularization(self.model)
@@ -280,7 +279,7 @@ class Trainer:
         
         x_stft_noise = x_stft_hat + noise
         
-        return x_stft, x_stftspec_hat, x_stft_noise
+        return x_stft_hat, x_stftspec_hat, x_stft_noise
     
     
     def eval_model(self,
@@ -490,11 +489,11 @@ if __name__ == "__main__":
                         choices=["unet", "pinvconv", "pinvconvskip", 
                                  "pinvconvskipnobottleneck", "pinvconvres", "pinvunet", 
                                  "degli"],
-                        default='pinvconvres')
+                        default='pinvconv')
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='testeo')
+                        default='pinvconv')
     
     parser.add_argument('--task',
                         type=str,
@@ -512,7 +511,7 @@ if __name__ == "__main__":
     
     parser.add_argument('--melspec2spec_exp_name',
                         type=str,
-                        default='pinvconvskip04')
+                        default='pinvconvres04')
     
     parser.add_argument('--resume_training',
                         action='store_true',

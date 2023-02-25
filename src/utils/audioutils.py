@@ -4,7 +4,7 @@ import soundfile as sf
 import torch
 
 
-def open_audio(audio_path, sr, audio_len):
+def open_audio(audio_path, sr):
 
     audio, _ = librosa.load(audio_path, sr=sr)
     audio = torch.as_tensor(audio)

@@ -24,11 +24,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--n_iter',
                         type = int,
-                        default = 100,
+                        default = 1000,
                         help = "GLA number of iterations")
     parser.add_argument('--n_blocks',
                         type = int,
-                        default = 3,
+                        default = 100,
                         help = "Number of blocks of DeGLI")
     parser.add_argument('--degli_name',
                         type = str,

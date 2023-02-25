@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import librosa.display
@@ -122,13 +121,13 @@ def plot_train_hist_degli(experiment_dir: Path):
 def plot_gla_metrics(metrics: dict,
                      save_path: Path):
     
-    n_iter_ax = [n * 10 for n in range(len(metrics))]
+    n_iter_ax = [n * 10 for n in range(len(metrics["pesq_hist"]))]
     plt.figure(figsize=(10, 8))
     plt.subplot(2,1,1)
     plt.plot(n_iter_ax, metrics["pesq_hist"], color='b')
     plt.ylabel("WB-PESQ")
     plt.grid()
-    plt.title("Griffin-Lim Algorithm Baseline metrics", fontsize=16)
+    plt.title("Fast Griffin-Lim metrics", fontsize=16)
     
     plt.subplot(2,1,2)
     plt.plot(n_iter_ax, metrics["stoi_hist"], color='r')
@@ -148,7 +147,7 @@ def plot_gla_time(times: list,
     plt.xlabel("Number of GLA iterations")
     plt.ylabel("Time [s]")
     plt.grid()
-    plt.title("Griffin-Lim Algorithm time per iteration", fontsize=16)
+    plt.title("Fast Griffin-Lim time per iteration", fontsize=16)
     
     plt.savefig(save_path)
     plt.close()
@@ -194,7 +193,7 @@ def plot_degli_gla_metrics_time(comparisons_dir: Path,
     
     stoi_path = comparisons_dir / "stoi_time.png"
     pesq_path = comparisons_dir / "pesq_time.png"
-    
+    gla_time_hist = [gla_time_hist[m] for m in range(9,len(gla_time_hist),10)]
     plt.figure(figsize=(10, 8))
     plt.plot(gla_time_hist, gla_metrics_hist["stoi_hist"], color='b', label="GLA")
     plt.plot(degli_time_hist, degli_metrics_hist["stoi_hist"], color='r', label="DeGLI")
