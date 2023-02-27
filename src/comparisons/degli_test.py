@@ -61,7 +61,7 @@ class DeGLITester:
                 
                 scores_to_print = str({k.replace("_hist", ""): round(float(max(v)), 4) for k, v in metrics_hist.items() if v != 0.})
                 pbar.set_postfix_str(scores_to_print)
-                if n == 10:
+                if n == 50:
                     break
             
         metrics = {"stoi": max(metrics_hist["stoi_hist"]),

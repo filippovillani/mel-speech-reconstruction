@@ -12,11 +12,13 @@ def main(args):
     test_dl = build_dataloader(hparams, config.DATA_DIR, "spec2wav", "test")
     gla_tester = GLATester(args)
     degli_tester = DeGLITester(args)
-    gla_metrics_hist, gla_time_hist = gla_tester.test_gla(test_dl)
+    gla_metrics_hist, gla_time_hist, fgla_metrics_hist, fgla_time_hist = gla_tester.test_gla(test_dl)
     degli_metrics_hist, degli_time_hist = degli_tester.test_degli(test_dl)
     plot_degli_gla_metrics_time(config.COMPARISONS_DIR,
                                 gla_metrics_hist, 
                                 gla_time_hist, 
+                                fgla_metrics_hist,
+                                fgla_time_hist,
                                 degli_metrics_hist, 
                                 degli_time_hist)
     

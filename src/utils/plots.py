@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 import librosa.display
 import matplotlib.pyplot as plt
@@ -188,14 +189,22 @@ def plot_degli_time(times: list,
 def plot_degli_gla_metrics_time(comparisons_dir: Path,
                                 gla_metrics_hist: dict, 
                                 gla_time_hist: list,
+                                fgla_metrics_hist: dict,
+                                fgla_time_hist: list,
                                 degli_metrics_hist: dict, 
                                 degli_time_hist: list):
     
-    stoi_path = comparisons_dir / "stoi_time.png"
-    pesq_path = comparisons_dir / "pesq_time.png"
+    save_dir = comparisons_dir / f"gla{len(gla_time_hist)*10}_degli{len(degli_time_hist)}"
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
+
+    stoi_path = save_dir / "stoi_time.png"
+    pesq_path = save_dir / "pesq_time.png"
     gla_time_hist = [gla_time_hist[m] for m in range(9,len(gla_time_hist),10)]
+    fgla_time_hist = [fgla_time_hist[m] for m in range(9,len(fgla_time_hist),10)]
     plt.figure(figsize=(10, 8))
     plt.plot(gla_time_hist, gla_metrics_hist["stoi_hist"], color='b', label="GLA")
+    plt.plot(gla_time_hist, fgla_metrics_hist["stoi_hist"], color='g', label="FGLA")
     plt.plot(degli_time_hist, degli_metrics_hist["stoi_hist"], color='r', label="DeGLI")
     plt.xlabel("Time [s]")
     plt.ylabel("STOI")
@@ -207,6 +216,7 @@ def plot_degli_gla_metrics_time(comparisons_dir: Path,
     
     plt.figure(figsize=(10, 8))
     plt.plot(gla_time_hist, gla_metrics_hist["pesq_hist"], color='b', label="GLA")
+    plt.plot(fgla_time_hist, fgla_metrics_hist["pesq_hist"], color='g', label="FGLA")
     plt.plot(degli_time_hist, degli_metrics_hist["pesq_hist"], color='r', label="DeGLI")
     plt.xlabel("Time [s]")
     plt.ylabel("WB-PESQ")
