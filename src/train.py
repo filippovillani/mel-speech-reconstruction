@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 import config
 from dataset import build_dataloader
-from metrics import SI_SDR
+from metrics import SI_SSDR
 from losses import ComplexMSELoss, FrobeniusLoss, l2_regularization
 from networks.build_model import build_model
 from utils.audioutils import (compute_wav, denormalize_db_spectr, normalize_db_spectr, to_db,
@@ -38,13 +38,13 @@ class Trainer:
                                 "patience_epochs": 0,  
                                 "best_epoch": 0,
                                 "best_epoch_scores": {"pesq": 0.,
-                                                      "si-sdr": 0},
+                                                      "si-ssdr": 0},
                                 "train_hist": {},
                                 "val_hist": {}}
         
         self.pesq = PerceptualEvaluationSpeechQuality(fs=self.hprms.sr, mode="wb")
         self.stoi = ShortTimeObjectiveIntelligibility(fs=self.hprms.sr)
-        self.sisdr = SI_SDR().to(self.hprms.device)
+        self.sissdr = SI_SSDR().to(self.hprms.device)
         
         # TODO: refactor this 
         if self.task == "melspec2wav":
@@ -97,7 +97,7 @@ class Trainer:
             
             self.model.train()
             train_scores = {"loss": 0.,
-                            "si-sdr": 0.,
+                            "si-ssdr": 0.,
                             "stoi": 0.,
                             "pesq": 0.}
             start_epoch = time()        
@@ -125,11 +125,11 @@ class Trainer:
                     loss.backward()  
                     self.optimizer.step()    
                     
-                    sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)),
+                    sdr_metric = self.sissdr(to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)),
                                             to_linear(denormalize_db_spectr(x_stftspec_db_norm))).detach()
                     
                     if (not torch.isnan(sdr_metric) and not torch.isinf(sdr_metric)):
-                        train_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-train_scores["si-sdr"]))
+                        train_scores["si-ssdr"] += ((1./(n+1))*(sdr_metric-train_scores["si-ssdr"]))
                                 
                 elif self.task == "spec2wav":
                     if self.data_degli_name is not None:
@@ -203,7 +203,7 @@ class Trainer:
                                          test_dl = val_dl,
                                          task = self.task)
             if self.task == "melspec2spec":
-                self.lr_sched.step(val_scores["si-sdr"])
+                self.lr_sched.step(val_scores["si-ssdr"])
             elif self.task in ["spec2wav", "melspec2wav"]:
                 self.lr_sched.step(val_scores["pesq"])
             # Update and save training state
@@ -290,7 +290,7 @@ class Trainer:
         model.eval()
 
         test_scores = {"loss": 0.,
-                        "si-sdr": 0.,
+                        "si-ssdr": 0.,
                         "stoi": 0.,
                         "pesq": 0.}        
         pbar = tqdm(test_dl, desc=f'Evaluation', postfix='[]')
@@ -308,9 +308,9 @@ class Trainer:
                         
                     test_scores["loss"] += ((1./(n+1))*(loss-test_scores["loss"]))
                     
-                    sdr_metric = self.sisdr(to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)),
+                    sdr_metric = self.sissdr(to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm)),
                                             to_linear(denormalize_db_spectr(x_stftspec_db_norm)))
-                    test_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-test_scores["si-sdr"]))  
+                    test_scores["si-ssdr"] += ((1./(n+1))*(sdr_metric-test_scores["si-ssdr"]))  
                 
                 elif task == "spec2wav":
                     x_stft = batch["stft"].to(model.device)
@@ -448,7 +448,7 @@ class Trainer:
         if self.task in ["spec2wav", "melspec2wav"]:
             metr = "pesq"
         elif self.task == "melspec2spec":
-            metr = "si-sdr"
+            metr = "si-ssdr"
             
         if val_scores[metr] <= self.training_state["best_epoch_scores"][metr]:
             self.training_state["patience_epochs"] += 1

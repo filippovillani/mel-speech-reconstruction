@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 
 
-class SI_SDR(nn.Module):
+class SI_SSDR(nn.Module):
     def __init__(self):
-        super(SI_SDR, self).__init__()
+        super(SI_SSDR, self).__init__()
     
     def forward(self, s_target, s_hat):
         return self._si_sdr_metric(s_target, s_hat)
@@ -19,7 +19,7 @@ class SI_SDR(nn.Module):
             s_target (torch.Tensor): spectrogram of target signal
             s_hat (torch.Tensor): spectrogram of reconstructed signal
         Returns:
-            si_sdr (float): Scale-Invariant Signal to Disturb Ratio
+            si_ssdr (float): Scale-Invariant Signal to Disturb Ratio
         """
         # Zero-mean normalization
         s_hat = (s_hat - torch.mean(s_hat))
@@ -29,6 +29,6 @@ class SI_SDR(nn.Module):
                             torch.sum(torch.pow(s_target, 2)) + 1e-12)
         
         e_noise = s_hat - s_target
-        SI_SDR_linear = torch.divide(torch.sum(torch.pow(s_target, 2)), torch.sum(torch.pow(e_noise, 2)) + 1e-12)
-        si_sdr = torch.mul(torch.log10(SI_SDR_linear), 10.)
-        return si_sdr 
+        SI_SSDR_linear = torch.divide(torch.sum(torch.pow(s_target, 2)), torch.sum(torch.pow(e_noise, 2)) + 1e-12)
+        si_ssdr = torch.mul(torch.log10(SI_SSDR_linear), 10.)
+        return si_ssdr 

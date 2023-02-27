@@ -9,7 +9,7 @@ from torchmetrics.audio.stoi import ShortTimeObjectiveIntelligibility
 from tqdm import tqdm
 
 import config
-from metrics import SI_SDR
+from metrics import SI_SSDR
 from dataset import build_dataloader
 from networks.build_model import build_model
 from griffinlim import griffin_lim, fast_griffin_lim
@@ -55,7 +55,7 @@ class Tester:
         
         self.pesq = PerceptualEvaluationSpeechQuality(fs = self.hprms.sr, mode= "wb")
         self.stoi = ShortTimeObjectiveIntelligibility(fs = self.hprms.sr)
-        self.sisdr = SI_SDR().to(self.hprms.device)
+        self.sissdr = SI_SSDR().to(self.hprms.device)
         
     def test_model(self, 
                    test_dl: DataLoader):
@@ -63,7 +63,7 @@ class Tester:
         
         test_scores = {"stoi": 0.,
                        "pesq": 0.,
-                       "si-sdr": 0.} 
+                       "si-ssdr": 0.} 
         
         pbar = tqdm(test_dl, desc="Evaluation")
         with torch.no_grad():
@@ -73,8 +73,8 @@ class Tester:
                     
                     x_stftspec_hat_db_norm = self.melspec2spec_model(x_melspec_db_norm).squeeze(1)
                     x_stftspec_hat = to_linear(denormalize_db_spectr(x_stftspec_hat_db_norm))  
-                    sdr_metric = self.sisdr(x_stftspec_hat, x_stftspec)
-                    test_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-test_scores["si-sdr"]))
+                    sdr_metric = self.sissdr(x_stftspec_hat, x_stftspec)
+                    test_scores["si-ssdr"] += ((1./(n+1))*(sdr_metric-test_scores["si-ssdr"]))
                     
                 elif self.task == "spec2wav":
                     x_stft = batch["stft"].to(self.hprms.device)
@@ -115,10 +115,10 @@ class Tester:
                     elif self.spec2wav_model_name == "fgla":
                         x_wav_hat = fast_griffin_lim(x_stftspec_hat, n_iter=self.gla_iter).squeeze()
                     
-                    sdr_metric = self.sisdr(x_stftspec_hat, x_stftspec)
+                    sdr_metric = self.sissdr(x_stftspec_hat, x_stftspec)
                     stoi_metric = self.stoi(x_wav_hat, x_wav)
                     pesq_metric = self.pesq(x_wav_hat, x_wav)
-                    test_scores["si-sdr"] += ((1./(n+1))*(sdr_metric-test_scores["si-sdr"]))
+                    test_scores["si-ssdr"] += ((1./(n+1))*(sdr_metric-test_scores["si-ssdr"]))
                     test_scores["stoi"] += ((1./(n+1))*(stoi_metric-test_scores["stoi"]))
                     test_scores["pesq"] += ((1./(n+1))*(pesq_metric-test_scores["pesq"]))
                     
@@ -186,12 +186,12 @@ if __name__ == "__main__":
     
     parser.add_argument('--experiment_name',
                         type=str,
-                        default='degli_def01')
+                        default='pinvconvWD_fgla')
     
     parser.add_argument('--task',
                         type=str,
                         choices=["melspec2spec", "spec2wav", "melspec2wav"],
-                        default='spec2wav')
+                        default='melspec2wav')
     
     parser.add_argument('--spec2wav_model_name',
                         choices = ["fgla", "gla", "degli"],
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     
     parser.add_argument('--spec2wav_weights_path',
                         type=str,
-                        default = 'degli_def01')
+                        default = 'pinvconvres_degli')
 
     parser.add_argument('--melspec2spec_model_name',
                         choices = ["pinvconv", "pinvconvskip", "pinvunet", "pinvconvskip", 
