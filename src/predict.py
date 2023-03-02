@@ -25,7 +25,7 @@ def predict(args):
     config_path = melspec2spec_dir / "config.json"
     if args.spec2wav_weights_dir is not None:
         degli_config_path = config.MELSPEC2WAV_DIR / args.spec2wav_weights_dir / "config.json"
-    x_wav_hat_path = experiment_dir / 'gla_from_melspec.wav'
+    x_wav_hat_path = experiment_dir / 'prediction.wav'
     metrics_path = experiment_dir / 'prediction_metrics.json'    
     prediction_img_path = experiment_dir / 'prediction.png'  
 
@@ -117,23 +117,22 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--melspec2spec_model_name', 
                         choices = ["unet", "pinvconv", "pinvconvskip", 
-                                 "pinvconvskipnobottleneck", "pinvconvres", "pinvunet", 
-                                 "degli"],
+                                 "pinvconvskipnobottleneck", "pinvconvres", "pinvunet"],
                         type=str,
                         default = 'pinvconvskip')
     
     parser.add_argument('--melspec2spec_weights_dir',
                         type=str,
-                        default='pinvconvres04')
+                        default='pinvconvskipWD4')
     
     parser.add_argument('--spec2wav_model_name', 
                         choices = ["degli", "fgla", "gla"],
                         type=str,
-                        default = 'fgla')
+                        default = 'degli')
     
     parser.add_argument('--spec2wav_weights_dir',
                         type=str,
-                        default='convpinvres_degli')
+                        default='pinvconvskipWD4_degli00')
     
     parser.add_argument('--degli_blocks',
                         type=int,
@@ -141,7 +140,7 @@ if __name__ == "__main__":
     
     parser.add_argument('--audio_path',
                         type=str,
-                        default='in.wav')
+                        default='in2.wav')
     
     args = parser.parse_args()
     predict(args)
