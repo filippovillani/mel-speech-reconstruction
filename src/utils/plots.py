@@ -37,34 +37,33 @@ def plot_train_hist(experiment_dir: Path):
         plt.close()
 
 
-def plot_melspec_prediction(mel: np.ndarray,
-                    mel_hat: np.ndarray,
-                    sr: int,
-                    n_fft: int,
-                    hop_len: int,
-                    save_path: str):
+def plot_melspec_prediction(spectrogram: np.ndarray,
+                            spectrogram_hat: np.ndarray,
+                            sr: int,
+                            n_fft: int,
+                            hop_len: int,
+                            save_path: str):
     
-    plt.figure(figsize=(10, 8))
-    plt.subplot(2,1,1)
-    librosa.display.specshow(mel, 
+    fig, ax = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(10, 8))
+    img = librosa.display.specshow(spectrogram, 
+                                   sr=sr, 
+                                   n_fft=n_fft, 
+                                   hop_length=hop_len, 
+                                   x_axis='time', 
+                                   y_axis='hz',
+                                   ax=ax[0])
+    ax[0].set(title='STFT-spectrogram')
+    ax[0].label_outer()
+    
+    librosa.display.specshow(spectrogram_hat, 
                              sr=sr, 
                              n_fft=n_fft, 
                              hop_length=hop_len, 
                              x_axis='time', 
-                             y_axis='hz')
-    plt.title('STFT-spectrogram')
-    plt.colorbar(format="%+2.f dB")
-    
-    plt.subplot(2,1,2)
-    librosa.display.specshow(mel_hat, 
-                             sr=sr, 
-                             n_fft=n_fft, 
-                             hop_length=hop_len, 
-                             x_axis='time', 
-                             y_axis='hz')
-    plt.title('STFT-spectrogram predicted')
-    plt.title('STFT-spectrogram predicted')
-    plt.colorbar(format="%+2.f dB")
+                             y_axis='hz',
+                             ax=ax[1])
+    ax[1].set(title='STFT-spectrogram predicted')
+    fig.colorbar(img, ax=ax, format="%+2.f dB")
     plt.savefig(save_path)
 
 def plot_train_hist_degli(experiment_dir: Path):
@@ -219,9 +218,9 @@ def plot_degli_gla_metrics_time(comparisons_dir: Path,
     plt.plot(fgla_time_hist, fgla_metrics_hist["pesq_hist"], color='g', label="FGLA")
     plt.plot(degli_time_hist, degli_metrics_hist["pesq_hist"], color='r', label="DeGLI")
     plt.xlabel("Time [s]")
-    plt.ylabel("WB-PESQ")
+    plt.ylabel("PESQ")
     plt.legend()
     plt.grid()
-    plt.title("WB-PESQ as a function of time")
+    plt.title("PESQ as a function of time")
     plt.savefig(pesq_path)
     plt.close()
