@@ -1,0 +1,44 @@
+{
+    "batch_size": 1,
+    "lr": 0.0001,
+    "weights_decay": 0.0001,
+    "epochs": 15,
+    "patience": 5,
+    "lr_patience": 3,
+    "loss": "l1",
+    "max_snr_db": 12,
+    "min_snr_db": -6,
+    "first_unet_channel_units": 32,
+    "unet_kernel_size": [
+        3,
+        3
+    ],
+    "drop_rate": 0.0,
+    "conv_channels": [
+        32,
+        64,
+        128
+    ],
+    "conv_kernel_size": [
+        5,
+        3
+    ],
+    "degli_hidden_channels": 64,
+    "degli_kernel_size": [
+        5,
+        3
+    ],
+    "degli_data_lr": 1e-06,
+    "device": "cuda",
+    "num_workers": 0,
+    "sr": 16000,
+    "n_mels": 250,
+    "n_fft": 1024,
+    "n_channels": 1,
+    "hop_len": 256,
+    "audio_ms": 1020,
+    "audio_thresh": 0.1,
+    "audio_len": 16320,
+    "n_frames": 64,
+    "n_stft": 513
+}
