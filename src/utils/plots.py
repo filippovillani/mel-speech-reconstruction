@@ -193,15 +193,17 @@ def plot_degli_gla_metrics_time(comparisons_dir: Path,
                                 degli_metrics_hist: dict, 
                                 degli_time_hist: list):
     
-    save_dir = comparisons_dir / f"gla{len(gla_time_hist)*10}_degli{len(degli_time_hist)}"
+    save_dir = comparisons_dir / f"gla{len(gla_time_hist)}_degli{len(degli_time_hist)}"
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
 
-    stoi_path = save_dir / "stoi_time.png"
-    pesq_path = save_dir / "pesq_time.png"
+    pesq_path = save_dir / "pesqstoi_time.png"
     gla_time_hist = [gla_time_hist[m] for m in range(9,len(gla_time_hist),10)]
     fgla_time_hist = [fgla_time_hist[m] for m in range(9,len(fgla_time_hist),10)]
-    plt.figure(figsize=(10, 8))
+    
+    
+    plt.figure(figsize=(8, 3.5))
+    plt.subplot(1,2,1)
     plt.plot(gla_time_hist, gla_metrics_hist["stoi_hist"], color='b', label="GLA")
     plt.plot(gla_time_hist, fgla_metrics_hist["stoi_hist"], color='g', label="FGLA")
     plt.plot(degli_time_hist, degli_metrics_hist["stoi_hist"], color='r', label="DeGLI")
@@ -209,11 +211,8 @@ def plot_degli_gla_metrics_time(comparisons_dir: Path,
     plt.ylabel("STOI")
     plt.legend()
     plt.grid()
-    plt.title("STOI as a function of time")
-    plt.savefig(stoi_path)
-    plt.close()
     
-    plt.figure(figsize=(10, 8))
+    plt.subplot(1,2,2)
     plt.plot(gla_time_hist, gla_metrics_hist["pesq_hist"], color='b', label="GLA")
     plt.plot(fgla_time_hist, fgla_metrics_hist["pesq_hist"], color='g', label="FGLA")
     plt.plot(degli_time_hist, degli_metrics_hist["pesq_hist"], color='r', label="DeGLI")
@@ -221,6 +220,5 @@ def plot_degli_gla_metrics_time(comparisons_dir: Path,
     plt.ylabel("PESQ")
     plt.legend()
     plt.grid()
-    plt.title("PESQ as a function of time")
     plt.savefig(pesq_path)
     plt.close()
