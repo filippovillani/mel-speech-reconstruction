@@ -123,16 +123,16 @@ if __name__ == "__main__":
     
     parser.add_argument('--melspec2spec_weights_dir',
                         type=str,
-                        default='pinvconvskipWD4')
+                        default='pinvconvskipWD4_mel250')
     
     parser.add_argument('--spec2wav_model_name', 
                         choices = ["degli", "fgla", "gla"],
                         type=str,
-                        default = 'degli')
+                        default = 'fgla')
     
     parser.add_argument('--spec2wav_weights_dir',
                         type=str,
-                        default='pinvconvskipWD4_degli00')
+                        default='pinvconvskipWD4_mel250')
     
     parser.add_argument('--degli_blocks',
                         type=int,
