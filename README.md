@@ -8,7 +8,7 @@ pip install -r requirements.txt
 ```
 To test the models on an  ```audio.wav``` in ```/data``` with Mel Spectrogram Inversion model's weights in ```melspec2spec_weights_dir``` and Phase Reconstruction model's weights in ```spec2wav_weights_dir```:
 ```
-predict.py --audio_path audio.wav --spec2wav_weights_dir  --melspec2spec_weights_dir
+predict.py --audio_path --spec2wav_weights_dir  --melspec2spec_weights_dir
 ```
 The generated spectrogram and the speech audio file are saved in ```/results/melspec2wav/spec2wav_weights_dir```.
 
